@@ -7,7 +7,7 @@ change that module (and its parameters) without touching the others.
 ## Data flow
 
 ```
-ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬─► focus.* ─► tray status, aiwa focus
+ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬─► focus.* ─► tray status
                     │                                          └─► analyzer + rules ─► policy ─► nudges
                     └─► current() ─► classifier ─► popup ─► store
 ```
@@ -35,8 +35,9 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `services/activitywatch.py` | Run ActivityWatch's server + watchers instead of its own tray app; restart crashed ones; stop them on quit; take over leftovers from a crashed run | module commands → running processes | `[activitywatch] manage`, `modules` | `test_activitywatch.py` |
 | `ui/` | Tray, popup, inbox (Qt) | — | — | manual |
 | `platforms/` | Per OS: start at login, where ActivityWatch is installed | — | — | manual |
-| `commands/` | One module per CLI command; `data.py` loads segments for all | — | — | via runs |
-| `app.py` | Wire it all into the tray app: 2 s poll + 15 s analysis | — | `[analysis]` | manual |
+| `app.py` | Wire it all into the tray app: 2 s poll + 15 s analysis; menu actions | — | `[analysis]` | manual |
+| `cli.py` | Entry point: `aiwa` starts the tray app | — | — | — |
+| `commands/` | Developer tools, one module per subcommand; `data.py` loads segments for all | — | — | via runs |
 
 ## Focus intensity
 
@@ -61,10 +62,9 @@ reports mean intensity, deep minutes (score ≥ `deep_threshold`, 0.6), the
 longest deep streak, switches into distraction per hour, and the share of time active.
 
 **Calibrating:** aiwa asks for a 1–5 focus rating a few times a day (and on
-demand from the tray). `aiwa calibrate` reports how well each component agrees
-with those ratings, and from 20 ratings on, which parameter values agree best.
+demand from the tray). `core/calibration.py` reports how well each component
+agrees with those ratings, and from 20 ratings on, which parameter values agree
+best (`aiwa calibrate` for now; a tray entry once enough ratings exist).
 
-**Validating:** `aiwa focus --date YYYY-MM-DD` replays a day hour by hour.
-Compare it with how the day felt, then adjust one parameter at a time.
 Public-data check: `benchmarks/swell_kw.py`, results in `docs/benchmarks.md`
 (interruptions lower the score for 20 of 23 people; fit and hit rate untested there).

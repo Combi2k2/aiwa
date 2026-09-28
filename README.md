@@ -18,19 +18,16 @@ Everything stays on your machine.
 ## Usage
 
 ```bash
-uv sync                          # create .venv and install dependencies
-uv run aiwa config               # print the config path (created on first run)
-uv run aiwa check                # recent activity with categories, and findings
-uv run aiwa focus                # focus intensity now + last hour, per window size
-uv run aiwa focus --date 2026-09-28   # replay a whole day hour by hour
-uv run aiwa calibrate            # how well the focus score matches your 1–5 ratings
-uv run aiwa track                # list tracked apps (track APP / untrack APP)
-uv run aiwa categorize           # list remembered categories
-uv run aiwa categorize "Slack" shallow   # set one
-uv run aiwa start                # run the tray app in the foreground
-uv run aiwa autostart install    # start aiwa at login (uninstall | status)
-uv run pytest                    # run tests
+uv sync          # create .venv and install dependencies
+uv run aiwa      # start the tray app (settings file is created on first run)
+uv run pytest    # run tests
 ```
+
+Everything else is in the tray menu: rate your focus, the small-task inbox,
+snoozing nudges, **Open settings…** (the config file) and **Start at login**.
+
+Developer tools for inspecting the data processing: `uv run aiwa --help`
+(`check`, `focus`, `calibrate`, `track`, `categorize`, ...).
 
 Only tracked apps are recorded by name. Other windows are seen only as
 `(untracked)`: switches still count, but no names or titles are kept.
@@ -39,8 +36,7 @@ When you use an untracked app for 5 seconds, aiwa asks whether to track it,
 and as what (Deep / Shallow / Distraction / Neutral / Don't track / Ask later).
 The name is only shown in that popup; it is never sent anywhere, and
 "Don't track" stores just a hash of it. Apps can
-also be listed in `[[track]]` in the config, or managed with
-`aiwa track`, `aiwa track APP` and `aiwa untrack APP`.
+also be listed in `[[track]]` in the config.
 
 ## Categories
 
@@ -72,8 +68,8 @@ component and parameter is described in `docs/components.md`.
 
 ```
 src/aiwa/
-  cli.py          parses arguments, dispatches to commands/
-  commands/       one module per command (check, focus, track, ...); data.py loads segments
+  cli.py          entry point: starts the tray app; subcommands are developer tools
+  commands/       one module per developer tool (check, focus, calibrate, ...)
   config.py       settings + app/window allowlist (TOML)
   app.py          the daemon: 2 s classification poll + 15 s analysis → UI
   core/           OS-independent logic

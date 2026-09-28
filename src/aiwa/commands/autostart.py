@@ -10,7 +10,7 @@ from aiwa import platforms
 def run(action: str) -> int:
     os_support = platforms.current()
     if action == "install":
-        os_support.install_autostart([sys.executable, "-m", "aiwa", "start"])
+        os_support.install_autostart([sys.executable, "-m", "aiwa"])
         print("aiwa will now start at login.")
     elif action == "uninstall":
         os_support.uninstall_autostart()

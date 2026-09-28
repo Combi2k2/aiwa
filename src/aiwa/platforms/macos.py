@@ -1,8 +1,6 @@
-"""Start at login with a LaunchAgent, restarted by launchd if it crashes."""
+"""Start at login with a LaunchAgent (from the next login on), restarted by launchd if it crashes."""
 
-import os
 import plistlib
-import subprocess
 from pathlib import Path
 
 from platformdirs import user_log_path
@@ -33,23 +31,16 @@ def install_autostart(command: list[str]) -> None:
             }
         )
     )
-    _launchctl("bootout", str(PLIST))  # replace any previous version
-    _launchctl("bootstrap", str(PLIST))
+    # Not loaded now: macOS loads LaunchAgents at the next login. Loading it
+    # here would start a second aiwa next to the one that's running.
 
 
 def uninstall_autostart() -> None:
-    if PLIST.exists():
-        _launchctl("bootout", str(PLIST))
-        PLIST.unlink()
+    # Only unregister (effective from the next login). Unloading it now would
+    # quit the aiwa that's running, if macOS started this one at login.
+    PLIST.unlink(missing_ok=True)
 
 
 def autostart_installed() -> bool:
     return PLIST.exists()
 
-
-def _launchctl(action: str, plist: str) -> None:
-    subprocess.run(
-        ["launchctl", action, f"gui/{os.getuid()}", plist],
-        check=False,
-        capture_output=True,
-    )

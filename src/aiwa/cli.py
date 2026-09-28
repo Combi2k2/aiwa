@@ -1,4 +1,8 @@
-"""Command line: parses arguments and dispatches to `aiwa.commands`."""
+"""Entry point. `aiwa` alone starts the tray app, which is how aiwa is meant to be used.
+
+The subcommands are developer tools for inspecting the data processing
+(timeline, categories, focus scores) from a terminal.
+"""
 
 from __future__ import annotations
 
@@ -11,8 +15,10 @@ from aiwa.core.events import Category
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="aiwa", description="AI watcher")
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(
+        prog="aiwa", description="AI watcher. Run without arguments to start the tray app."
+    )
+    sub = parser.add_subparsers(dest="command", title="developer tools")
     sub.add_parser("start", help="run the daemon (tray app) in the foreground")
     check = sub.add_parser("check", help="show recent activity with categories, and findings")
     check.add_argument("--all", action="store_true", help="list every segment, not just the last 15")
@@ -45,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     from aiwa.commands.data import ActivityWatchUnavailable
 
     try:
-        if args.command == "start":
+        if args.command in (None, "start"):
             from aiwa.app import run
 
             return run(config)

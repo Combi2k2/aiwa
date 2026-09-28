@@ -47,7 +47,7 @@ deep_threshold = 0.6            # a minute counts as deep work at this intensity
 
 [sampling]
 # A few times a day aiwa asks "how focused are you right now? (1–5)" at random
-# moments, to calibrate the focus score to you (see `aiwa calibrate`).
+# moments, to calibrate the focus score to you.
 enabled = true
 per_day = 5
 start = "09:00"

@@ -1,5 +1,8 @@
 # Plan: Deep Work philosophy in aiwa
 
+> 2026-09-28: aiwa is used through the tray app; `aiwa` alone starts it. The CLI
+> subcommands remain as developer tools. A GUI comes only after all features.
+
 ## Context
 aiwa (`~/Documents/aiwa`) is a tray daemon: every 60 s it reads window events from
 ActivityWatch, runs rules, and nudges through a rate-limiting policy. Today it has one rule

@@ -8,11 +8,12 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 from platformdirs import user_log_path
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QLockFile, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication
 
 from aiwa import platforms
-from aiwa.config import DB_PATH, Config
+from aiwa.config import CONFIG_PATH, DATA_DIR, DB_PATH, Config
 from aiwa.core.analyzer import Analyzer
 from aiwa.core.categories import Categorizer, prepare, summary
 from aiwa.core.classifier import ClassificationLoop, Question
@@ -66,6 +67,9 @@ class Aiwa:
             on_rate=lambda: self.ask_focus("manual"),
             on_inbox=self.open_inbox,
             on_snooze=self.snooze_hour,
+            on_settings=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(CONFIG_PATH))),
+            on_autostart=set_autostart,
+            autostart_enabled=platforms.current().autostart_installed(),
             on_quit=QApplication.quit,
         )
         self.popup = Popup()
@@ -112,7 +116,7 @@ class Aiwa:
                 self.ask_focus("sampled")
 
     def ask_focus(self, source: str) -> None:
-        """Ask for a 1–5 focus rating: ground truth for `aiwa calibrate`."""
+        """Ask for a 1–5 focus rating: ground truth for calibrating the focus score."""
         asked_at = datetime.now(timezone.utc)
         self.popup.ask(
             "How focused are you right now?",
@@ -189,6 +193,14 @@ class Aiwa:
         self.tray.set_status("snoozed for 1 hour")
 
 
+def set_autostart(enabled: bool) -> None:
+    os_support = platforms.current()
+    if enabled:
+        os_support.install_autostart([sys.executable, "-m", "aiwa"])
+    else:
+        os_support.uninstall_autostart()
+
+
 def start_activitywatch(config: Config) -> ActivityWatchSupervisor | None:
     """Start ActivityWatch's programs ourselves, unless disabled, missing, or already running."""
     if not config.aw_manage:
@@ -208,6 +220,11 @@ def start_activitywatch(config: Config) -> ActivityWatchSupervisor | None:
 def run(config: Config) -> int:
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)  # closing the inbox must not quit the daemon
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    lock = QLockFile(str(DATA_DIR / "aiwa.lock"))  # released automatically if aiwa crashes
+    if not lock.tryLock(0):
+        print("aiwa is already running.", flush=True)
+        return 0
     aiwa = Aiwa(config)
     if aiwa.activitywatch:
         app.aboutToQuit.connect(aiwa.activitywatch.stop)  # stop what we started
