@@ -15,17 +15,19 @@ from PySide6.QtWidgets import QApplication
 from aiwa import platforms
 from aiwa.config import CONFIG_PATH, DATA_DIR, DB_PATH, Config
 from aiwa.core.analyzer import Analyzer
-from aiwa.core.categories import Categorizer, prepare, summary
+from aiwa.core.categories import Categorizer, prepare
 from aiwa.core.classifier import ClassificationLoop, Question
 from aiwa.core.collector import Collector
 from aiwa.core.events import Category, Finding, Level, Segment
 from aiwa.core.focus import moment
 from aiwa.core.sampling import SamplingSchedule
+from aiwa.core.scoreboard import ScoreKeeper
 from aiwa.core.openjev import Openjev
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
 from aiwa.core.store import Store
 from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, server_check
+from aiwa.ui.board import scoreboard_lines
 from aiwa.ui.inbox import Inbox
 from aiwa.ui.popup import Popup
 from aiwa.ui.tray import Tray
@@ -63,6 +65,13 @@ class Aiwa:
         self.policy = NudgePolicy(timedelta(minutes=config.min_minutes_between_nudges))
         self.sampling = SamplingSchedule(config.sampling) if config.sampling_enabled else None
         self.recent: list[Segment] = []  # latest analyzed timeline, for rating snapshots
+        self.scores = ScoreKeeper(
+            self.store,
+            load=lambda start, end: prepare(self.collector.between(start, end), config, self.categorizer),
+            params=config.focus,
+            goal_minutes=config.daily_goal_minutes,
+            day_starts=config.day_starts,
+        )
         self.tray = Tray(
             on_rate=lambda: self.ask_focus("manual"),
             on_inbox=self.open_inbox,
@@ -99,6 +108,15 @@ class Aiwa:
             if self.policy.allow(finding, now, away=away):
                 self.policy.record(finding, now)
                 self.show(finding, self.store.log_nudge(finding, now))
+        self.update_scoreboard(now)
+
+    def update_scoreboard(self, now: datetime) -> None:
+        try:
+            self.scores.update(now)  # the first run fills in today so far
+        except (OSError, RuntimeError):
+            return
+        today = self.scores.today(now)
+        self.tray.set_scoreboard(scoreboard_lines(today, self.config.focus.deep_threshold), today.goal_progress)
 
     def poll(self) -> None:
         """Every few seconds: classify what's in focus, asking the user if needed."""
@@ -140,10 +158,8 @@ class Aiwa:
         horizon = self.config.focus.main_horizon
         focus = moment(segments, now, horizon, self.config.focus)
         if focus.intensity is None:
-            return summary(segments, self.config.lookback_minutes)
-        return f"focus {focus.intensity:.2f} ({_minutes(horizon)}) · " + summary(
-            segments, self.config.lookback_minutes
-        )
+            return f"focus now – (mostly away, last {_minutes(horizon)})"
+        return f"focus now {focus.intensity:.2f} (last {_minutes(horizon)})"
 
     def ask(self, question: Question) -> None:
         if question.kind == "track":

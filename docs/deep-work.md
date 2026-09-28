@@ -39,7 +39,7 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   → user sets 1–2 goals; sessions are tagged with the goal they serve
 - [ ] **4DX 2: Act on lead measures**
   → track deep hours per goal (a lead measure), not outcomes
-- [ ] **4DX 3: Keep a compelling scoreboard**
+- [x] **4DX 3: Keep a compelling scoreboard**
   → tray shows today's deep hours; simple daily/weekly chart
 - [ ] **4DX 4: Cadence of accountability**
   → weekly review popup: deep hours vs. goal, what helped, what got in the way

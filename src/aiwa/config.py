@@ -45,6 +45,10 @@ capacity = 5                    # stability: items a focused working set can hol
 dwell_scale_seconds = 20        # continuity: mean time per item that scores 0.63
 deep_threshold = 0.6            # a minute counts as deep work at this intensity or above
 
+[scoreboard]
+daily_goal_minutes = 60  # deep minutes to aim for each day (shown as a ring on the tray icon)
+day_starts = "04:00"     # when "today" begins; work after midnight counts toward the day before
+
 [sampling]
 # A few times a day aiwa asks "how focused are you right now? (1–5)" at random
 # moments, to calibrate the focus score to you.
@@ -143,6 +147,8 @@ class Config:
     ask_after_seconds: int = 10
     ask_track_after_seconds: int = 5
     focus: FocusParams = field(default_factory=FocusParams)
+    daily_goal_minutes: int = 60
+    day_starts: time = time(4, 0)
     sampling_enabled: bool = True
     sampling: SamplingParams = field(default_factory=SamplingParams)
     openjev_enabled: bool = False
@@ -190,6 +196,8 @@ def parse(raw: dict) -> Config:
         ask_after_seconds=classification.get("ask_after_seconds", 10),
         ask_track_after_seconds=classification.get("ask_track_after_seconds", 5),
         focus=parse_focus(focus),
+        daily_goal_minutes=raw.get("scoreboard", {}).get("daily_goal_minutes", 60),
+        day_starts=time.fromisoformat(raw.get("scoreboard", {}).get("day_starts", "04:00")),
         sampling_enabled=raw.get("sampling", {}).get("enabled", True),
         sampling=parse_sampling(raw.get("sampling", {})),
         openjev_enabled=openjev.get("enabled", False),

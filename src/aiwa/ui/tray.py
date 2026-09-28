@@ -3,11 +3,15 @@ from __future__ import annotations
 from typing import Callable
 
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
+from PySide6.QtWidgets import QMenu, QSystemTrayIcon
+
+from aiwa.ui.icon import scope_icon
+
+SCOREBOARD_LINES = 4
 
 
 class Tray:
-    """Menu bar (macOS) / system tray (Windows, Linux) icon."""
+    """Menu bar (macOS) / system tray (Windows, Linux) icon with the scoreboard."""
 
     def __init__(
         self,
@@ -19,11 +23,13 @@ class Tray:
         autostart_enabled: bool,
         on_quit: Callable[[], None],
     ):
-        icon = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
-        self._icon = QSystemTrayIcon(icon)
+        self._icon = QSystemTrayIcon(scope_icon(0))
+        self._progress = 0.0
         self._menu = QMenu()
-        self._status = self._menu.addAction("aiwa: starting…")
-        self._status.setEnabled(False)
+        self._status = self._info("aiwa: starting…")
+        self._board = [self._info("") for _ in range(SCOREBOARD_LINES)]
+        for line in self._board:
+            line.setVisible(False)
         self._menu.addSeparator()
         self._add("Rate my focus now…", on_rate)
         self._add("Small-task inbox", on_inbox)
@@ -39,6 +45,11 @@ class Tray:
         self._icon.setToolTip("aiwa")
         self._icon.show()
 
+    def _info(self, text: str) -> QAction:
+        action = self._menu.addAction(text)
+        action.setEnabled(False)  # read-only line
+        return action
+
     def _add(self, label: str, callback: Callable[[], None]) -> QAction:
         action = QAction(label, self._menu)
         action.triggered.connect(callback)
@@ -48,6 +59,14 @@ class Tray:
     def set_status(self, text: str) -> None:
         self._status.setText(f"aiwa: {text}")
         self._icon.setToolTip(f"aiwa: {text}")
+
+    def set_scoreboard(self, lines: list[str], progress: float) -> None:
+        for action, text in zip(self._board, lines):
+            action.setText(text)
+            action.setVisible(True)
+        if round(progress, 2) != round(self._progress, 2):  # redraw only when it visibly changes
+            self._progress = progress
+            self._icon.setIcon(scope_icon(progress))
 
     def notify(self, title: str, message: str) -> None:
         self._icon.showMessage(title, message, QSystemTrayIcon.MessageIcon.Information)

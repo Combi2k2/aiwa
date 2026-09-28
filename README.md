@@ -23,6 +23,10 @@ uv run aiwa      # start the tray app (settings file is created on first run)
 uv run pytest    # run tests
 ```
 
+The menu-bar icon is a scope whose ring fills toward today's deep-work goal
+(a dot in the middle once reached). The tray menu shows today's scoreboard:
+deep minutes, streaks, goal progress and time per activity.
+
 Everything else is in the tray menu: rate your focus, the small-task inbox,
 snoozing nudges, **Open settings…** (the config file) and **Start at login**.
 
@@ -73,6 +77,7 @@ src/aiwa/
   config.py       settings + app/window allowlist (TOML)
   app.py          the daemon: 2 s classification poll + 15 s analysis → UI
   core/           OS-independent logic
+    scoreboard/   per-minute ledger, day summary, keeper (today's score)
     collector.py  reads window, AFK and browser-tab data from ActivityWatch
     timeline.py   cuts out away time, attaches tabs, merges repeated segments
     categories.py deep / shallow / distraction / neutral, and masking untracked apps

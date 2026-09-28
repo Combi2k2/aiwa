@@ -1,4 +1,4 @@
-"""Local SQLite storage: nudges, small tasks, categories, tracking choices, focus ratings."""
+"""Local SQLite storage: nudges, small tasks, categories, tracking choices, focus ratings, focus minutes."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import hashlib
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from aiwa.core.events import Category, Finding
@@ -40,6 +40,11 @@ CREATE TABLE IF NOT EXISTS ratings (
     rating INTEGER,             -- 1 (scattered) .. 5 (deeply focused); NULL = skipped
     source TEXT NOT NULL,       -- 'sampled' (random popup) or 'manual' (from the tray menu)
     snapshot TEXT               -- JSON: aiwa's focus score and components at that moment
+);
+CREATE TABLE IF NOT EXISTS focus_minutes (
+    minute TEXT PRIMARY KEY,    -- start of the minute, UTC
+    intensity REAL,             -- main-window focus intensity at its end; NULL = mostly away
+    activity TEXT               -- what was mostly done: deep, shallow, ..., away; NULL = no data
 );
 CREATE TABLE IF NOT EXISTS tracking (
     app_hash TEXT PRIMARY KEY,  -- sha256 of the app name
@@ -167,6 +172,26 @@ class Store:
             Rating(datetime.fromisoformat(a), datetime.fromisoformat(b), r, src, json.loads(snap or "{}"))
             for a, b, r, src, snap in rows
         ]
+
+    def save_minutes(self, entries: list) -> None:
+        self._db.executemany(
+            "INSERT OR REPLACE INTO focus_minutes (minute, intensity, activity) VALUES (?, ?, ?)",
+            [(e.minute.isoformat(), e.intensity, e.activity) for e in entries],
+        )
+        self._db.commit()
+
+    def minutes(self, start: datetime, end: datetime) -> list:
+        from aiwa.core.scoreboard.ledger import MinuteEntry
+
+        rows = self._db.execute(
+            "SELECT minute, intensity, activity FROM focus_minutes WHERE minute >= ? AND minute < ? ORDER BY minute",
+            (start.astimezone(timezone.utc).isoformat(), end.astimezone(timezone.utc).isoformat()),
+        ).fetchall()
+        return [MinuteEntry(datetime.fromisoformat(m), i, a) for m, i, a in rows]
+
+    def last_minute(self) -> datetime | None:
+        row = self._db.execute("SELECT MAX(minute) FROM focus_minutes").fetchone()
+        return datetime.fromisoformat(row[0]) if row and row[0] else None
 
     def forget_tracking(self, app: str) -> None:
         self._db.execute("DELETE FROM tracking WHERE app_hash = ?", (_hash(app),))

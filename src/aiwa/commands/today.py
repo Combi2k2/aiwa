@@ -1,0 +1,48 @@
+"""aiwa today / aiwa week: the scoreboard as the tray shows it, for checking the data."""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+from aiwa import config as config_mod
+from aiwa.commands.data import load_segments
+from aiwa.core.scoreboard import ScoreKeeper, day_bounds, summarize_day
+from aiwa.core.store import Store
+from aiwa.ui.board import duration, scoreboard_lines
+
+
+def keeper(config: config_mod.Config) -> ScoreKeeper:
+    return ScoreKeeper(
+        Store(config_mod.DB_PATH),
+        lambda start, end: load_segments(config, start, end),
+        config.focus,
+        config.daily_goal_minutes,
+        config.day_starts,
+    )
+
+
+def run_today(config: config_mod.Config) -> int:
+    k = keeper(config)
+    now = datetime.now(timezone.utc)
+    added = k.update(now)
+    today = k.today(now)
+    print(f"{today.day:%A %Y-%m-%d} (minutes added now: {added})")
+    for line in scoreboard_lines(today, config.focus.deep_threshold):
+        print(" ", line)
+    return 0
+
+
+def run_week(config: config_mod.Config) -> int:
+    k = keeper(config)
+    now = datetime.now(timezone.utc)
+    k.update(now)
+    print(f"  {'day':<14}{'deep':>6}{'streak':>8}{'mean':>7}  goal")
+    for back in range(6, -1, -1):
+        day, start, end = day_bounds(now - timedelta(days=back), config.day_starts)
+        entries = k.store.minutes(start, end)
+        if not entries:
+            continue
+        d = summarize_day(day, entries, config.focus.deep_threshold, config.daily_goal_minutes)
+        mean = f"{d.mean_intensity:.2f}" if d.mean_intensity is not None else "   –"
+        print(f"  {day:%a %Y-%m-%d}{duration(d.deep_minutes):>6}{d.longest_streak:>7}m{mean:>7}  {d.goal_progress:.0%}")
+    return 0
