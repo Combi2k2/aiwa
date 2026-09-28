@@ -4,11 +4,18 @@ A Windows Service would not work here: services run in an isolated session
 and cannot show tray icons or popups.
 """
 
+import os
 import subprocess
 import winreg
+from pathlib import Path
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 NAME = "aiwa"
+ACTIVITYWATCH_DIRS = [
+    Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "ActivityWatch",
+    Path(os.environ.get("PROGRAMFILES", "C:/Program Files")) / "ActivityWatch",
+]
+EXECUTABLE_SUFFIX = ".exe"
 
 
 def install_autostart(command: list[str]) -> None:

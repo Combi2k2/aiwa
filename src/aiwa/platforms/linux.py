@@ -10,6 +10,8 @@ from pathlib import Path
 from platformdirs import user_config_path
 
 DESKTOP_FILE = user_config_path("autostart") / "aiwa.desktop"
+ACTIVITYWATCH_DIRS = [Path.home() / "activitywatch", Path("/opt/activitywatch"), Path("/usr/lib/activitywatch")]
+EXECUTABLE_SUFFIX = ""
 
 
 def install_autostart(command: list[str]) -> None:

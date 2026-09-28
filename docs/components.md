@@ -30,8 +30,9 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/focus/period.py` | Summarize a period | `Segment`s, start, end → `Period` | `deep_threshold` | `test_focus.py` |
 | `core/analyzer.py`, `core/rules/` | Notice patterns | `Segment`s → `Finding`s | per rule | `test_core.py` |
 | `core/policy.py` | Allow an interruption? | `Finding`, now, away → yes/no | `[nudges]` | `test_core.py` |
+| `services/activitywatch.py` | Run ActivityWatch's server + watchers instead of its own tray app; restart crashed ones; stop them on quit; take over leftovers from a crashed run | module commands → running processes | `[activitywatch] manage`, `modules` | `test_activitywatch.py` |
 | `ui/` | Tray, popup, inbox (Qt) | — | — | manual |
-| `platforms/` | Start at login, per OS | — | — | manual |
+| `platforms/` | Per OS: start at login, where ActivityWatch is installed | — | — | manual |
 | `commands/` | One module per CLI command; `data.py` loads segments for all | — | — | via runs |
 | `app.py` | Wire it all into the tray app: 2 s poll + 15 s analysis | — | `[analysis]` | manual |
 

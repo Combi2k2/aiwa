@@ -8,8 +8,11 @@ Everything stays on your machine.
 
 ## Requirements
 
-- [ActivityWatch](https://activitywatch.net) running (it records window activity;
-  aiwa reads it through its local API). Add the browser extension for tab titles/URLs.
+- [ActivityWatch](https://activitywatch.net) installed (it records window activity;
+  aiwa reads it through its local API). aiwa starts ActivityWatch's background
+  programs itself, so ActivityWatch's own app and menu-bar icon aren't needed
+  (set `[activitywatch] manage = false` to run it yourself instead). Add the
+  ActivityWatch browser extension for website titles/URLs.
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 
 ## Usage
@@ -84,7 +87,8 @@ src/aiwa/
     policy.py     when a nudge may interrupt (gaps, snooze)
     store.py      SQLite: nudge history, small-task inbox, remembered categories
   ui/             PySide6 (Qt): tray, popup, inbox; same on every OS
-  platforms/      the only OS-specific code: start at login
+  services/       background programs aiwa runs: ActivityWatch's server and watchers
+  platforms/      the only OS-specific code: start at login, ActivityWatch location
     macos.py      LaunchAgent
     windows.py    registry Run key (untested)
     linux.py      XDG autostart (untested)

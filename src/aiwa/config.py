@@ -24,6 +24,10 @@ DEFAULT_CONFIG = """\
 [activitywatch]
 host = "127.0.0.1"
 port = 5600
+# Let aiwa start ActivityWatch's server and watchers itself, so ActivityWatch's
+# own tray icon isn't needed. If ActivityWatch is already running, aiwa leaves it alone.
+manage = true
+modules = ["aw-server", "aw-watcher-afk", "aw-watcher-window"]
 
 [analysis]
 poll_seconds = 15      # how often to re-analyze recent activity (tray status, focus, nudges)
@@ -120,6 +124,8 @@ class CategoryRule:
 class Config:
     aw_host: str = "127.0.0.1"
     aw_port: int = 5600
+    aw_manage: bool = True
+    aw_modules: list[str] = field(default_factory=lambda: ["aw-server", "aw-watcher-afk", "aw-watcher-window"])
     poll_seconds: int = 15
     lookback_minutes: int = 30
     min_minutes_between_nudges: int = 20
@@ -163,6 +169,8 @@ def parse(raw: dict) -> Config:
     return Config(
         aw_host=aw.get("host", "127.0.0.1"),
         aw_port=aw.get("port", 5600),
+        aw_manage=aw.get("manage", True),
+        aw_modules=aw.get("modules", ["aw-server", "aw-watcher-afk", "aw-watcher-window"]),
         poll_seconds=analysis.get("poll_seconds", 15),
         lookback_minutes=analysis.get("lookback_minutes", 30),
         min_minutes_between_nudges=nudges.get("min_minutes_between", 20),

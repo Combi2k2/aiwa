@@ -1,8 +1,10 @@
-"""The only OS-specific code. Each module exposes the same three functions:
+"""The only OS-specific code. Each module exposes the same interface:
 
     install_autostart(command: list[str]) -> None
     uninstall_autostart() -> None
     autostart_installed() -> bool
+    ACTIVITYWATCH_DIRS: list[Path]   where ActivityWatch's programs usually are
+    EXECUTABLE_SUFFIX: str           "" or ".exe"
 """
 
 import sys

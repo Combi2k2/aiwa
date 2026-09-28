@@ -8,6 +8,11 @@ from pathlib import Path
 from platformdirs import user_log_path
 
 LABEL = "com.aiwa.agent"
+ACTIVITYWATCH_DIRS = [
+    Path("/Applications/ActivityWatch.app/Contents/MacOS"),
+    Path.home() / "Applications" / "ActivityWatch.app" / "Contents" / "MacOS",
+]
+EXECUTABLE_SUFFIX = ""
 PLIST = Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
 
 

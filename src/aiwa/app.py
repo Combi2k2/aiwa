@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import signal
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
+from platformdirs import user_log_path
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
+from aiwa import platforms
 from aiwa.config import DB_PATH, Config
 from aiwa.core.analyzer import Analyzer
 from aiwa.core.categories import Categorizer, prepare, summary
@@ -20,6 +23,7 @@ from aiwa.core.openjev import Openjev
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
 from aiwa.core.store import Store
+from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, server_check
 from aiwa.ui.inbox import Inbox
 from aiwa.ui.popup import Popup
 from aiwa.ui.tray import Tray
@@ -36,6 +40,7 @@ def _minutes(delta: timedelta) -> str:
 class Aiwa:
     def __init__(self, config: Config):
         self.config = config
+        self.activitywatch = start_activitywatch(config)  # before anything reads from it
         self.store = Store(DB_PATH)
         config.add_tracked_apps(self.store.tracked_apps())
         self.collector = Collector(config)
@@ -65,6 +70,9 @@ class Aiwa:
 
     def tick(self) -> None:
         now = datetime.now(timezone.utc)
+        if self.activitywatch:
+            for module in self.activitywatch.check():
+                print(f"restarted {module}", flush=True)
         try:
             raw = self.collector.timeline(timedelta(minutes=self.config.lookback_minutes))
         except (OSError, RuntimeError) as e:  # ActivityWatch not running or not ready
@@ -146,10 +154,34 @@ class Aiwa:
         self.tray.set_status("snoozed for 1 hour")
 
 
+def start_activitywatch(config: Config) -> ActivityWatchSupervisor | None:
+    """Start ActivityWatch's programs ourselves, unless disabled, missing, or already running."""
+    if not config.aw_manage:
+        return None
+    os_support = platforms.current()
+    commands = find_commands(os_support.ACTIVITYWATCH_DIRS, os_support.EXECUTABLE_SUFFIX, config.aw_modules)
+    if commands is None:
+        print("ActivityWatch not found; start it yourself or set [activitywatch] manage = false", flush=True)
+        return None
+    supervisor = ActivityWatchSupervisor(
+        commands, server_check(config.aw_host, config.aw_port), user_log_path("aiwa") / "activitywatch"
+    )
+    print(supervisor.start(), flush=True)
+    return supervisor
+
+
 def run(config: Config) -> int:
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)  # closing the inbox must not quit the daemon
     aiwa = Aiwa(config)
+    if aiwa.activitywatch:
+        app.aboutToQuit.connect(aiwa.activitywatch.stop)  # stop what we started
+    # Quit cleanly (running aboutToQuit) when told to stop, e.g. at logout or by launchd.
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, lambda *_: app.quit())
+    wake = QTimer()
+    wake.timeout.connect(lambda: None)  # lets Python handle signals while Qt's loop runs
+    wake.start(500)
     QTimer.singleShot(0, aiwa.tick)  # first check right away
     return app.exec()
 
