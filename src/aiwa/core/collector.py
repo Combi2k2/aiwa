@@ -68,7 +68,8 @@ class Collector:
 
         afk = latest("afkstatus")
         if afk and afk["data"].get("status") == "afk":
-            return Segment(now, now, "(away)", away=True)
+            left = datetime.fromisoformat(afk["timestamp"])  # the last input, not when it was noticed
+            return Segment(left, now, "(away)", away=True)
         window = latest("currentwindow")
         if window is None:
             return None

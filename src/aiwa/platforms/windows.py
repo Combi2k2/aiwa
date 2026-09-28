@@ -38,3 +38,4 @@ def autostart_installed() -> bool:
         return True
     except FileNotFoundError:
         return False
+

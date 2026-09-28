@@ -15,6 +15,7 @@ class Tray:
 
     def __init__(
         self,
+        on_session: Callable[[], None],
         on_rate: Callable[[], None],
         on_inbox: Callable[[], None],
         on_snooze: Callable[[], None],
@@ -31,6 +32,7 @@ class Tray:
         for line in self._board:
             line.setVisible(False)
         self._menu.addSeparator()
+        self._session = self._add("Start focus session", on_session)
         self._add("Rate my focus now…", on_rate)
         self._add("Small-task inbox", on_inbox)
         self._add("Snooze nudges for 1 hour", on_snooze)
@@ -67,6 +69,13 @@ class Tray:
         if round(progress, 2) != round(self._progress, 2):  # redraw only when it visibly changes
             self._progress = progress
             self._icon.setIcon(scope_icon(progress))
+
+    def set_session(self, elapsed_minutes: int | None) -> None:
+        """None = no session running."""
+        if elapsed_minutes is None:
+            self._session.setText("Start focus session")
+        else:
+            self._session.setText(f"Stop focus session  ({elapsed_minutes} min)")
 
     def notify(self, title: str, message: str) -> None:
         self._icon.showMessage(title, message, QSystemTrayIcon.MessageIcon.Information)

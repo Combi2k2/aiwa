@@ -22,6 +22,7 @@ from aiwa.core.events import Category, Finding, Level, Segment
 from aiwa.core.focus import moment
 from aiwa.core.sampling import SamplingSchedule
 from aiwa.core.scoreboard import ScoreKeeper
+from aiwa.core.session import Action, BelowThreshold, FocusSession
 from aiwa.core.openjev import Openjev
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
@@ -30,8 +31,10 @@ from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, 
 from aiwa.ui.board import scoreboard_lines
 from aiwa.ui.inbox import Inbox
 from aiwa.ui.popup import Popup
+from aiwa.ui.sound import Alarm
 from aiwa.ui.tray import Tray
 
+SESSION_FOCUS_WINDOW = timedelta(minutes=2)  # short, so a dip in focus is noticed quickly
 FAST_POLL_MS = 2_000  # how often to look at what's in focus right now (cheap: latest events only)
 RATING_OPTIONS = [(c.value.capitalize(), c.value) for c in Category] + [("Ask later", "later")]
 FOCUS_OPTIONS = [("1 scattered", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5 deeply focused", "5"), ("Skip", "skip")]
@@ -72,7 +75,16 @@ class Aiwa:
             goal_minutes=config.daily_goal_minutes,
             day_starts=config.day_starts,
         )
+        self.low_focus = BelowThreshold(config.low_focus_below)
+        self.alarm = Alarm(config.alarm_sound, config.alarm_volume)
+        self.session: FocusSession | None = None
+        self.session_id: int | None = None
+        running = self.store.running_session()  # resume a session that was running when aiwa stopped
+        if running:
+            self.session_id, started = running
+            self.session = FocusSession(started, config.session)
         self.tray = Tray(
+            on_session=self.toggle_session,
             on_rate=lambda: self.ask_focus("manual"),
             on_inbox=self.open_inbox,
             on_snooze=self.snooze_hour,
@@ -109,6 +121,67 @@ class Aiwa:
                 self.policy.record(finding, now)
                 self.show(finding, self.store.log_nudge(finding, now))
         self.update_scoreboard(now)
+        self.step_session(segments, now)
+
+    # --- focus sessions --------------------------------------------------------
+
+    def toggle_session(self) -> None:
+        now = datetime.now(timezone.utc)
+        if self.session:
+            self.stop_session(now)
+        else:
+            self.session_id = self.store.start_session(now)
+            self.session = FocusSession(now, self.config.session)
+            self.tray.set_session(0)
+
+    def stop_session(self, now: datetime) -> None:
+        if not self.session:
+            return
+        counts = {action.value: n for action, n in self.session.counts.items()}
+        self.store.end_session(self.session_id, now, counts)
+        self.session = self.session_id = None
+        self.alarm.stop()
+        self.tray.set_session(None)
+        if self.popup.isVisible():
+            self.popup.hide()
+
+    def step_session(self, segments: list[Segment], now: datetime) -> None:
+        if not self.session:
+            return
+        minutes = int(self.session.elapsed(now).total_seconds() // 60)
+        self.tray.set_session(minutes)
+        latest = max(segments, key=lambda s: s.end) if segments else None
+        away_since = latest.start if latest and latest.away else None
+        short = moment(segments, now, SESSION_FOCUS_WINDOW, self.config.focus)
+        low = self.low_focus(short.intensity)
+        if away_since is None and not low and self.alarm.ringing:
+            self.alarm.stop()  # the user is back, and focused
+        action = self.session.step(now, low, away_since)
+        if action is Action.NONE:
+            return
+        if action is Action.ALARM:
+            self.alarm.start()  # loops until the user is back or answers
+            away = int((now - away_since).total_seconds() // 60)
+            message = f"You've been away for {away} min, and your focus session is still running."
+            options = [("I'm back", "ok"), ("Stop session", "stop")]
+        elif action is Action.WRAP_UP:
+            message = f"{minutes} minutes of focus. Time to wrap up and take a real break."
+            options = [("Stop session", "stop"), ("Almost done", "ok")]
+        elif action is Action.ASK_DONE:
+            message = "Your focus has dropped. Is this session done?"
+            options = [("Yes, stop", "stop"), ("No, keep going", "ok")]
+        else:
+            if self.config.sound_on_low_focus:
+                self.alarm.start()  # rings until focus is back or the popup is answered
+            message = "Your focus is slipping. Come back to what you were working on?"
+            options = [("Back on it", "ok"), ("Stop session", "stop")]
+        # session messages take priority over any other open question
+        self.popup.ask(message, self.on_session_answer, options)
+
+    def on_session_answer(self, response: str) -> None:
+        self.alarm.stop()
+        if response == "stop":
+            self.stop_session(datetime.now(timezone.utc))
 
     def update_scoreboard(self, now: datetime) -> None:
         try:

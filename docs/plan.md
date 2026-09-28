@@ -131,3 +131,23 @@ Deep work still involves switching, but within a small set of related items (a
   have fired, to tune thresholds without being interrupted.
 - `scripts/try_openjev.py`-style smoke test for `OpenjevDecider`.
 - Manual: run `uv run aiwa start`, walk through each new popup on macOS.
+
+
+## Decisions 2026-09-28: focus sessions
+- Started and **stopped by the user**, no fixed length (a forced period can overwhelm;
+  stopping someone mid-flow works against deep work).
+- 0–25 min: pokes every minute while focus is low (encouraging; the 25 is never shown).
+- 25–50 min: no stop reminders; a dip in focus first asks "is this session done?",
+  then pokes every minute if they keep going.
+- 50 min+: "time to wrap up", repeated every 2 min until stopped.
+- Away 5 min during a session: alarm sound, every minute until back.
+- The global "one nudge per 20 min" and "never while away" rules were Claude's
+  defaults, not the user's; sessions ignore them. Non-session nudges (fragmentation,
+  bouncing) are parked until scheduled deep-work blocks are designed.
+
+**Later:**
+- "Low focus" as a **personal quantile** of the user's own history instead of a
+  fixed 0.35, so the bar rises as their focus capacity improves (`core/session.py`
+  `LowFocus` is the swap point).
+- A **full-screen mascot** instead of the popup, so continuing with a distraction
+  isn't possible. Popups first, to test the behaviour.

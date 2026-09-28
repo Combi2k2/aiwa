@@ -46,6 +46,15 @@ CREATE TABLE IF NOT EXISTS focus_minutes (
     intensity REAL,             -- main-window focus intensity at its end; NULL = mostly away
     activity TEXT               -- what was mostly done: deep, shallow, ..., away; NULL = no data
 );
+CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,              -- NULL while the session is running
+    pokes INTEGER DEFAULT 0,
+    asked_done INTEGER DEFAULT 0,
+    wrap_ups INTEGER DEFAULT 0,
+    alarms INTEGER DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS tracking (
     app_hash TEXT PRIMARY KEY,  -- sha256 of the app name
     app TEXT,                   -- the name, kept only for apps the user chose to track
@@ -192,6 +201,25 @@ class Store:
     def last_minute(self) -> datetime | None:
         row = self._db.execute("SELECT MAX(minute) FROM focus_minutes").fetchone()
         return datetime.fromisoformat(row[0]) if row and row[0] else None
+
+    def start_session(self, started_at: datetime) -> int:
+        cur = self._db.execute("INSERT INTO sessions (started_at) VALUES (?)", (started_at.isoformat(),))
+        self._db.commit()
+        return cur.lastrowid
+
+    def running_session(self) -> tuple[int, datetime] | None:
+        row = self._db.execute(
+            "SELECT id, started_at FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return (row[0], datetime.fromisoformat(row[1])) if row else None
+
+    def end_session(self, session_id: int, ended_at: datetime, counts: dict[str, int]) -> None:
+        self._db.execute(
+            "UPDATE sessions SET ended_at = ?, pokes = ?, asked_done = ?, wrap_ups = ?, alarms = ? WHERE id = ?",
+            (ended_at.isoformat(), counts.get("poke", 0), counts.get("ask_done", 0),
+             counts.get("wrap_up", 0), counts.get("alarm", 0), session_id),
+        )
+        self._db.commit()
 
     def forget_tracking(self, app: str) -> None:
         self._db.execute("DELETE FROM tracking WHERE app_hash = ?", (_hash(app),))

@@ -33,11 +33,13 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/scoreboard/ledger.py` | One saved entry per minute: focus intensity + main activity | segments → `MinuteEntry` per finished minute | — | `test_scoreboard.py` |
 | `core/scoreboard/day.py` | A day's summary: deep minutes, streaks, time per activity, goal progress | minute entries → `DayScore` | `deep_threshold`, `[scoreboard]` | `test_scoreboard.py` |
 | `core/scoreboard/keeper.py` | Score only new minutes (fill in the day at start); today's score | now → saved minutes; `DayScore` | `[scoreboard] day_starts`, `daily_goal_minutes` | `test_scoreboard.py` |
-| `core/analyzer.py`, `core/rules/` | Notice patterns | `Segment`s → `Finding`s | per rule | `test_core.py` |
+| `core/session.py` | Focus session behaviour: pokes while focus is low (build-up), "done?" then pokes (free), wrap-up reminders (50 min+), alarm when away | time, low focus?, away since → one `Action` | `[session]` | `test_session.py` |
+| `core/analyzer.py`, `core/rules/` | Notice patterns outside sessions (currently none active: parked until scheduled deep-work blocks) | `Segment`s → `Finding`s | per rule | `test_core.py` |
 | `core/policy.py` | Allow an interruption? | `Finding`, now, away → yes/no | `[nudges]` | `test_core.py` |
 | `services/activitywatch.py` | Run ActivityWatch's server + watchers instead of its own tray app; restart crashed ones; stop them on quit; take over leftovers from a crashed run | module commands → running processes | `[activitywatch] manage`, `modules` | `test_activitywatch.py` |
-| `ui/` | Tray (scoreboard lines, `board.py`), scope icon with progress ring (`icon.py`), popup, inbox | — | — | `test_scoreboard.py` (text), manual |
+| `ui/` | Tray (scoreboard lines, `board.py`), scope icon with progress ring (`icon.py`), popup, inbox, looping alarm sound (`sound.py`, Qt audio) | — | `[session] alarm_sound`, `alarm_volume` | `test_scoreboard.py` (text), manual |
 | `platforms/` | Per OS: start at login, where ActivityWatch is installed | — | — | manual |
+| `assets/sounds/` | Built-in sounds, with `CREDITS.md` (source and license) | — | — | — |
 | `app.py` | Wire it all into the tray app: 2 s poll + 15 s analysis; menu actions | — | `[analysis]` | manual |
 | `cli.py` | Entry point: `aiwa` starts the tray app | — | — | — |
 | `commands/` | Developer tools, one module per subcommand; `data.py` loads segments for all | — | — | via runs |

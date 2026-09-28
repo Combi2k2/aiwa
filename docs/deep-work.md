@@ -11,7 +11,7 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
 - [x] **AFK awareness**: read ActivityWatch's AFK bucket; drop away time; never nudge while away
 - [x] **Browser tabs**: use the ActivityWatch web extension for tab URL/title
 - [x] **App categories**: user labels apps/sites as deep, shallow or distraction
-- [ ] **Focus sessions**: explicit "start focus" with a length and allowed apps
+- [x] **Focus sessions**: explicit "start focus" with a length and allowed apps
 - [ ] **Input intensity** (optional): `aw-watcher-input` counts to tell working from idling
 
 ## Core ideas
@@ -29,7 +29,7 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
 
 - [ ] **Choose a depth philosophy** (monastic, bimodal, rhythmic, journalistic)
   → setup choice that sets the defaults for scheduling and nudge strictness
-- [ ] **Ritualize**: where, how long, how you work, what supports you
+- [~] **Ritualize**: where, how long, how you work, what supports you
   → focus-session template: duration, allowed apps, pre-session checklist
 - [ ] **Grand gesture**
   → optional "big session" mode: long block, strict allowlist, all nudges but blockers off

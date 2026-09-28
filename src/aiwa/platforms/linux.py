@@ -31,3 +31,4 @@ def uninstall_autostart() -> None:
 
 def autostart_installed() -> bool:
     return DESKTOP_FILE.exists()
+

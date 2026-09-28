@@ -14,6 +14,7 @@ from platformdirs import user_config_path, user_data_path
 from aiwa.core.events import Category
 from aiwa.core.focus.params import FocusParams
 from aiwa.core.sampling import SamplingParams
+from aiwa.core.session import SessionParams
 
 CONFIG_PATH = user_config_path("aiwa") / "config.toml"
 DATA_DIR = user_data_path("aiwa")
@@ -48,6 +49,16 @@ deep_threshold = 0.6            # a minute counts as deep work at this intensity
 [scoreboard]
 daily_goal_minutes = 60  # deep minutes to aim for each day (shown as a ring on the tray icon)
 day_starts = "04:00"     # when "today" begins; work after midnight counts toward the day before
+
+[session]
+# Focus sessions are started and stopped from the tray; they have no fixed length.
+build_up_minutes = 25       # before this, a dip in focus gets a poke every minute
+wrap_up_minutes = 50        # after this, "time to wrap up" every 2 minutes until you stop
+low_focus_below = 0.35      # "low focus": 2-minute focus score below this
+away_alarm_minutes = 5      # away this long during a session → alarm, looping until you're back
+alarm_sound = ""            # path to a sound file (mp3/wav); empty = the built-in alarm clock
+alarm_volume = 1.0          # 0.0 – 1.0
+sound_on_low_focus = true   # ring the alarm while focus is slipping, until it's back
 
 [sampling]
 # A few times a day aiwa asks "how focused are you right now? (1–5)" at random
@@ -149,6 +160,11 @@ class Config:
     focus: FocusParams = field(default_factory=FocusParams)
     daily_goal_minutes: int = 60
     day_starts: time = time(4, 0)
+    session: SessionParams = field(default_factory=SessionParams)
+    low_focus_below: float = 0.35
+    alarm_sound: Path | None = None  # None = built-in
+    alarm_volume: float = 1.0
+    sound_on_low_focus: bool = True
     sampling_enabled: bool = True
     sampling: SamplingParams = field(default_factory=SamplingParams)
     openjev_enabled: bool = False
@@ -198,6 +214,11 @@ def parse(raw: dict) -> Config:
         focus=parse_focus(focus),
         daily_goal_minutes=raw.get("scoreboard", {}).get("daily_goal_minutes", 60),
         day_starts=time.fromisoformat(raw.get("scoreboard", {}).get("day_starts", "04:00")),
+        session=parse_session(raw.get("session", {})),
+        low_focus_below=raw.get("session", {}).get("low_focus_below", 0.35),
+        alarm_sound=Path(raw["session"]["alarm_sound"]).expanduser() if raw.get("session", {}).get("alarm_sound") else None,
+        alarm_volume=raw.get("session", {}).get("alarm_volume", 1.0),
+        sound_on_low_focus=raw.get("session", {}).get("sound_on_low_focus", True),
         sampling_enabled=raw.get("sampling", {}).get("enabled", True),
         sampling=parse_sampling(raw.get("sampling", {})),
         openjev_enabled=openjev.get("enabled", False),
@@ -208,6 +229,16 @@ def parse(raw: dict) -> Config:
             CategoryRule(Match.parse(c), Category(c["category"]))
             for c in raw.get("category", [])
         ],
+    )
+
+
+def parse_session(raw: dict) -> SessionParams:
+    d = SessionParams()
+    minutes = lambda key, default: timedelta(minutes=raw.get(key, default.total_seconds() / 60))
+    return SessionParams(
+        build_up=minutes("build_up_minutes", d.build_up),
+        wrap_up=minutes("wrap_up_minutes", d.wrap_up),
+        away_alarm_after=minutes("away_alarm_minutes", d.away_alarm_after),
     )
 
 

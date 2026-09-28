@@ -27,6 +27,12 @@ The menu-bar icon is a scope whose ring fills toward today's deep-work goal
 (a dot in the middle once reached). The tray menu shows today's scoreboard:
 deep minutes, streaks, goal progress and time per activity.
 
+**Focus sessions** (tray → Start focus session) run until you stop them. aiwa
+pokes you when your focus slips (with an alarm that rings until you're focused again), asks whether you're done if focus drops later
+on, reminds you to wrap up after 50 minutes, and sounds an alarm if you're away
+for 5 minutes (it keeps ringing until you're back; choose your own sound with
+`alarm_sound` in the settings). Details in `docs/plan.md`.
+
 Everything else is in the tray menu: rate your focus, the small-task inbox,
 snoozing nudges, **Open settings…** (the config file) and **Start at login**.
 

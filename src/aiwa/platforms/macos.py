@@ -44,3 +44,4 @@ def uninstall_autostart() -> None:
 def autostart_installed() -> bool:
     return PLIST.exists()
 
+
