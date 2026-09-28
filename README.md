@@ -23,6 +23,7 @@ uv run aiwa config               # print the config path (created on first run)
 uv run aiwa check                # recent activity with categories, and findings
 uv run aiwa focus                # focus intensity now + last hour, per window size
 uv run aiwa focus --date 2026-09-28   # replay a whole day hour by hour
+uv run aiwa calibrate            # how well the focus score matches your 1–5 ratings
 uv run aiwa track                # list tracked apps (track APP / untrack APP)
 uv run aiwa categorize           # list remembered categories
 uv run aiwa categorize "Slack" shallow   # set one

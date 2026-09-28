@@ -19,6 +19,7 @@ from aiwa.core.classifier import ClassificationLoop, Question
 from aiwa.core.collector import Collector
 from aiwa.core.events import Category, Finding, Level, Segment
 from aiwa.core.focus import moment
+from aiwa.core.sampling import SamplingSchedule
 from aiwa.core.openjev import Openjev
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
@@ -30,6 +31,7 @@ from aiwa.ui.tray import Tray
 
 FAST_POLL_MS = 2_000  # how often to look at what's in focus right now (cheap: latest events only)
 RATING_OPTIONS = [(c.value.capitalize(), c.value) for c in Category] + [("Ask later", "later")]
+FOCUS_OPTIONS = [("1 scattered", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5 deeply focused", "5"), ("Skip", "skip")]
 TRACK_OPTIONS = [(c.value.capitalize(), c.value) for c in Category] + [("Don't track", "never"), ("Ask later", "later")]
 
 
@@ -58,7 +60,14 @@ class Aiwa:
         )
         self.analyzer = Analyzer(default_rules())
         self.policy = NudgePolicy(timedelta(minutes=config.min_minutes_between_nudges))
-        self.tray = Tray(on_inbox=self.open_inbox, on_snooze=self.snooze_hour, on_quit=QApplication.quit)
+        self.sampling = SamplingSchedule(config.sampling) if config.sampling_enabled else None
+        self.recent: list[Segment] = []  # latest analyzed timeline, for rating snapshots
+        self.tray = Tray(
+            on_rate=lambda: self.ask_focus("manual"),
+            on_inbox=self.open_inbox,
+            on_snooze=self.snooze_hour,
+            on_quit=QApplication.quit,
+        )
         self.popup = Popup()
         self.inbox = Inbox(self.store)
         self.timer = QTimer()
@@ -79,6 +88,7 @@ class Aiwa:
             self.tray.set_status(f"waiting for ActivityWatch ({e.__class__.__name__})")
             return
         segments = prepare(raw, self.config, self.categorizer)
+        self.recent = segments
         away = bool(segments) and max(segments, key=lambda s: s.end).away
         self.tray.set_status("away" if away else self.status(segments, now))
         for finding in self.analyzer.run(segments, now):
@@ -96,6 +106,31 @@ class Aiwa:
         question = self.classifier.observe(current, now)
         if question and not self.popup.isVisible():
             self.ask(question)
+        elif self.sampling and not self.popup.isVisible():
+            away = current is None or current.away
+            if self.sampling.due(now, away):
+                self.ask_focus("sampled")
+
+    def ask_focus(self, source: str) -> None:
+        """Ask for a 1–5 focus rating: ground truth for `aiwa calibrate`."""
+        asked_at = datetime.now(timezone.utc)
+        self.popup.ask(
+            "How focused are you right now?",
+            lambda r: self.on_focus_rating(asked_at, r, source),
+            FOCUS_OPTIONS,
+        )
+
+    def on_focus_rating(self, asked_at: datetime, response: str, source: str) -> None:
+        now = datetime.now(timezone.utc)
+        snapshot = {}
+        for horizon in self.config.focus.horizons:
+            m = moment(self.recent, now, horizon, self.config.focus)
+            snapshot[f"{int(horizon.total_seconds() // 60)}m"] = {
+                "intensity": m.intensity, "depth": m.depth, "fit": m.fit,
+                "hit_rate": m.hit_rate, "continuity": m.continuity,
+            }
+        rating = None if response == "skip" else int(response)
+        self.store.add_rating(asked_at, now, rating, source, snapshot)
 
     def status(self, segments: list[Segment], now: datetime) -> str:
         horizon = self.config.focus.main_horizon

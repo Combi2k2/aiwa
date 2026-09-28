@@ -1,8 +1,9 @@
-"""Local SQLite storage: nudge history, small-task inbox, remembered categories."""
+"""Local SQLite storage: nudges, small tasks, categories, tracking choices, focus ratings."""
 
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
@@ -31,6 +32,14 @@ CREATE TABLE IF NOT EXISTS categories (
     set_at TEXT NOT NULL,
     confidence REAL,         -- openjev's probability; NULL for user answers
     confirmed_at TEXT        -- when the user accepted openjev's answer; NULL if not (yet)
+);
+CREATE TABLE IF NOT EXISTS ratings (
+    id INTEGER PRIMARY KEY,
+    asked_at TEXT NOT NULL,
+    answered_at TEXT NOT NULL,
+    rating INTEGER,             -- 1 (scattered) .. 5 (deeply focused); NULL = skipped
+    source TEXT NOT NULL,       -- 'sampled' (random popup) or 'manual' (from the tray menu)
+    snapshot TEXT               -- JSON: aiwa's focus score and components at that moment
 );
 CREATE TABLE IF NOT EXISTS tracking (
     app_hash TEXT PRIMARY KEY,  -- sha256 of the app name
@@ -141,9 +150,36 @@ class Store:
         rows = self._db.execute("SELECT app FROM tracking WHERE decision = 'track' ORDER BY app").fetchall()
         return [app for (app,) in rows]
 
+    def add_rating(
+        self, asked_at: datetime, answered_at: datetime, rating: int | None, source: str, snapshot: dict
+    ) -> None:
+        self._db.execute(
+            "INSERT INTO ratings (asked_at, answered_at, rating, source, snapshot) VALUES (?, ?, ?, ?, ?)",
+            (asked_at.isoformat(), answered_at.isoformat(), rating, source, json.dumps(snapshot)),
+        )
+        self._db.commit()
+
+    def ratings(self) -> list[Rating]:
+        rows = self._db.execute(
+            "SELECT asked_at, answered_at, rating, source, snapshot FROM ratings ORDER BY answered_at"
+        ).fetchall()
+        return [
+            Rating(datetime.fromisoformat(a), datetime.fromisoformat(b), r, src, json.loads(snap or "{}"))
+            for a, b, r, src, snap in rows
+        ]
+
     def forget_tracking(self, app: str) -> None:
         self._db.execute("DELETE FROM tracking WHERE app_hash = ?", (_hash(app),))
         self._db.commit()
+
+
+@dataclass(frozen=True)
+class Rating:
+    asked_at: datetime
+    answered_at: datetime
+    rating: int | None  # None = skipped
+    source: str
+    snapshot: dict
 
 
 def _hash(app: str) -> str:

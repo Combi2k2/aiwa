@@ -11,6 +11,7 @@ class Tray:
 
     def __init__(
         self,
+        on_rate: Callable[[], None],
         on_inbox: Callable[[], None],
         on_snooze: Callable[[], None],
         on_quit: Callable[[], None],
@@ -22,6 +23,7 @@ class Tray:
         self._status.setEnabled(False)
         self._menu.addSeparator()
         for label, callback in [
+            ("Rate my focus now…", on_rate),
             ("Small-task inbox", on_inbox),
             ("Snooze nudges for 1 hour", on_snooze),
             ("Quit aiwa", on_quit),

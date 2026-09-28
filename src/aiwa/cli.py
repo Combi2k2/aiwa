@@ -19,6 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     focus = sub.add_parser("focus", help="focus intensity now and over the last hour, or for a past day")
     focus.add_argument("--span", type=int, default=60, help="minutes of history to chart (default 60)")
     focus.add_argument("--date", help="replay a whole day hour by hour, e.g. 2026-09-28")
+    sub.add_parser("calibrate", help="how well the focus score agrees with your 1–5 ratings")
     categorize = sub.add_parser("categorize", help="list remembered categories, or set one")
     categorize.add_argument("key", nargs="?", help='an app like "Slack", or a website domain like "github.com"')
     categorize.add_argument("category", nargs="?", choices=[c.value for c in Category])
@@ -56,6 +57,10 @@ def main(argv: list[str] | None = None) -> int:
             from aiwa.commands import focus as command
 
             return command.run(config, span_minutes=args.span, day=args.date)
+        if args.command == "calibrate":
+            from aiwa.commands import calibrate as command
+
+            return command.run(config)
         if args.command in ("track", "untrack"):
             from aiwa.commands import track as command
 

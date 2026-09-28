@@ -28,6 +28,8 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/focus/continuity.py` | Stayed on each item long enough? | window → [0, 1] | `dwell_scale_seconds` | `test_focus.py` |
 | `core/focus/moment.py` | Score one moment | `Segment`s, t, τ → `Moment` (all components + intensity) | `horizons_minutes` | `test_focus.py` |
 | `core/focus/period.py` | Summarize a period | `Segment`s, start, end → `Period` | `deep_threshold` | `test_focus.py` |
+| `core/sampling.py` | When to ask "how focused are you? (1–5)" | now, away → due or not (random times in working hours, min gap) | `[sampling]` | `test_calibration.py` |
+| `core/calibration.py` | Score vs. your ratings | ratings + segments → rank correlation per component; one-at-a-time parameter sweep | — | `test_calibration.py` |
 | `core/analyzer.py`, `core/rules/` | Notice patterns | `Segment`s → `Finding`s | per rule | `test_core.py` |
 | `core/policy.py` | Allow an interruption? | `Finding`, now, away → yes/no | `[nudges]` | `test_core.py` |
 | `services/activitywatch.py` | Run ActivityWatch's server + watchers instead of its own tray app; restart crashed ones; stop them on quit; take over leftovers from a crashed run | module commands → running processes | `[activitywatch] manage`, `modules` | `test_activitywatch.py` |
@@ -57,6 +59,10 @@ Measured at τ = 2, 10, 30 min (`horizons_minutes`); the middle one is the main 
 A **period** (`core/focus/period.py`) samples the main score every minute and
 reports mean intensity, deep minutes (score ≥ `deep_threshold`, 0.6), the
 longest deep streak, switches into distraction per hour, and the share of time active.
+
+**Calibrating:** aiwa asks for a 1–5 focus rating a few times a day (and on
+demand from the tray). `aiwa calibrate` reports how well each component agrees
+with those ratings, and from 20 ratings on, which parameter values agree best.
 
 **Validating:** `aiwa focus --date YYYY-MM-DD` replays a day hour by hour.
 Compare it with how the day felt, then adjust one parameter at a time.

@@ -6,13 +6,14 @@ import os
 import re
 import tomllib
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import time, timedelta
 from pathlib import Path
 
 from platformdirs import user_config_path, user_data_path
 
 from aiwa.core.events import Category
 from aiwa.core.focus.params import FocusParams
+from aiwa.core.sampling import SamplingParams
 
 CONFIG_PATH = user_config_path("aiwa") / "config.toml"
 DATA_DIR = user_data_path("aiwa")
@@ -43,6 +44,15 @@ shallow_weight = 0.3            # depth: how much shallow time counts (deep 1, d
 capacity = 5                    # stability: items a focused working set can hold
 dwell_scale_seconds = 20        # continuity: mean time per item that scores 0.63
 deep_threshold = 0.6            # a minute counts as deep work at this intensity or above
+
+[sampling]
+# A few times a day aiwa asks "how focused are you right now? (1–5)" at random
+# moments, to calibrate the focus score to you (see `aiwa calibrate`).
+enabled = true
+per_day = 5
+start = "09:00"
+end = "18:00"
+min_gap_minutes = 45
 
 [classification]
 suggest_after_seconds = 2    # ask openjev about an unclassified app/website after this long on it
@@ -133,6 +143,8 @@ class Config:
     ask_after_seconds: int = 10
     ask_track_after_seconds: int = 5
     focus: FocusParams = field(default_factory=FocusParams)
+    sampling_enabled: bool = True
+    sampling: SamplingParams = field(default_factory=SamplingParams)
     openjev_enabled: bool = False
     openjev_api_key: str | None = None
     openjev_min_confidence: float = 0.7
@@ -178,6 +190,8 @@ def parse(raw: dict) -> Config:
         ask_after_seconds=classification.get("ask_after_seconds", 10),
         ask_track_after_seconds=classification.get("ask_track_after_seconds", 5),
         focus=parse_focus(focus),
+        sampling_enabled=raw.get("sampling", {}).get("enabled", True),
+        sampling=parse_sampling(raw.get("sampling", {})),
         openjev_enabled=openjev.get("enabled", False),
         openjev_api_key=openjev.get("api_key") or os.environ.get("OPENJEV_API_KEY"),
         openjev_min_confidence=openjev.get("min_confidence", 0.7),
@@ -186,6 +200,16 @@ def parse(raw: dict) -> Config:
             CategoryRule(Match.parse(c), Category(c["category"]))
             for c in raw.get("category", [])
         ],
+    )
+
+
+def parse_sampling(raw: dict) -> SamplingParams:
+    defaults = SamplingParams()
+    return SamplingParams(
+        per_day=raw.get("per_day", defaults.per_day),
+        start=time.fromisoformat(raw["start"]) if "start" in raw else defaults.start,
+        end=time.fromisoformat(raw["end"]) if "end" in raw else defaults.end,
+        min_gap=timedelta(minutes=raw.get("min_gap_minutes", defaults.min_gap.total_seconds() / 60)),
     )
 
 
