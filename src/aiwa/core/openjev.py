@@ -85,15 +85,33 @@ TASK_QUESTIONS = {
 
 
 def assess_task(client: Openjev, task: str):
-    """Kind, estimated minutes and specificity of a to-do item, or None if the call fails."""
-    from aiwa.core.planning import Assessment
+    """Kind, estimated minutes and specificity of a task, or None if the call fails."""
+    from aiwa.core.backlog import Assessment
 
     try:
-        a = client.ask(f'A person\'s to-do item: "{task}"', TASK_QUESTIONS)
+        a = client.ask(f'A person\'s task: "{task}"', TASK_QUESTIONS)
         return Assessment(
             kind=a["kind"]["choice"],
             minutes=SIZE_MINUTES.get(a["size"]["choice"]),
             specific=float(a["specific"]["noul"]),
         )
     except (requests.RequestException, KeyError, ValueError, TypeError):
+        return None
+
+
+def suggest_group(client: Openjev, task: str, groups: list[str]) -> str | None:
+    """The name of the existing goal group this task belongs to, or None (a new goal, or failure)."""
+    if not groups:
+        return None
+    criteria = {f"g{i}": f"Part of the goal \"{name}\"" for i, name in enumerate(groups)}
+    criteria["new"] = "Belongs to none of these goals"
+    try:
+        a = client.ask(
+            f'A person\'s new task: "{task}"',
+            {"group": {"type": "choice", "instructions": "Which of the person's goals does this task belong to?",
+                       "criteria": criteria}},
+        )["group"]
+        choice = a["choice"]
+        return groups[int(choice[1:])] if choice.startswith("g") and a.get("confidence", 1) >= 0.5 else None
+    except (requests.RequestException, KeyError, ValueError, TypeError, IndexError):
         return None

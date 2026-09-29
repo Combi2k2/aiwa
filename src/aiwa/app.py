@@ -24,15 +24,16 @@ from aiwa.core.sampling import SamplingSchedule
 from aiwa.core.scoreboard import ScoreKeeper
 from aiwa.core.scoreboard.day import day_bounds
 from aiwa.core.session import Action, BelowThreshold, FocusSession
-from aiwa.core.openjev import Openjev, assess_task
+from aiwa.core.openjev import Openjev, assess_task, suggest_group
+from aiwa.core.quota import QuotaKeeper
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
 from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
 from aiwa.rhythm_prompts import RhythmPrompts
+from aiwa.tasks_controller import TasksController
 from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, server_check
 from aiwa.ui.board import rhythm_lines, scoreboard_lines, task_lines
-from aiwa.ui.inbox import Inbox
 from aiwa.ui.popup import Popup
 from aiwa.ui.sound import Alarm
 from aiwa.ui.tray import Tray
@@ -62,8 +63,9 @@ class Aiwa:
             if config.openjev_enabled and config.openjev_api_key
             else None
         )
-        self.assessor = (lambda task: assess_task(openjev, task)) if openjev else None  # deep/shallow, size, vague?
-        self.writer = make_writer(config)  # the planning conversation's AI, or None (templates)
+        self.assess = (lambda task: assess_task(openjev, task)) if openjev else None  # deep/shallow, size, vague?
+        self.suggest_group = (lambda task, groups: suggest_group(openjev, task, groups)) if openjev else None
+        self.helper = make_helper(config)  # the AI's step suggestions, or None
         self.classifier = ClassificationLoop(
             config,
             self.store,
@@ -78,9 +80,9 @@ class Aiwa:
             self.store,
             load=lambda start, end: prepare(self.collector.between(start, end), config, self.categorizer),
             params=config.focus,
-            goal_minutes=config.daily_goal_minutes,
             day_starts=config.day_starts,
         )
+        self.quota = QuotaKeeper(self.store, config.quota, config.day_starts, config.focus.deep_threshold)
         self.low_focus = BelowThreshold(config.low_focus_below)
         self.alarm = Alarm(config.alarm_sound, config.alarm_volume)
         self.session: FocusSession | None = None
@@ -93,10 +95,10 @@ class Aiwa:
         self.rhythm = Rhythm(self.store, config.rhythm, config.day_starts, config.focus.deep_threshold)
         self.tray = Tray(
             on_session=self.toggle_session,
-            on_plan=lambda: self.prompts.open_planner(),
-            on_task_done=lambda: self.prompts.task_done(),
+            on_tasks=lambda: self.tasks.open_board(),
+            on_new_task=lambda: self.tasks.new_task(),
+            on_task_done=lambda: self.tasks.task_done(),
             on_rate=lambda: self.ask_focus("manual"),
-            on_inbox=self.open_inbox,
             on_snooze=self.snooze_hour,
             on_settings=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(CONFIG_PATH))),
             on_autostart=set_autostart,
@@ -104,11 +106,16 @@ class Aiwa:
             on_quit=QApplication.quit,
         )
         self.popup = Popup()
+        self.tasks = TasksController(
+            self.store, self.popup, today=self.rhythm.today, day_starts=config.day_starts,
+            deep_minutes_today=lambda now: self.scores.today(now).deep_minutes,
+            assess=self.assess, suggest_group=self.suggest_group, helper=self.helper,
+        )
         self.prompts = RhythmPrompts(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
-            start_session=self.start_session, assessor=self.assessor, writer=self.writer,
+            request_session=lambda: self.tasks.request_session(self.start_session),
+            ask_anything_new=self.tasks.ask_anything_new,
         )
-        self.inbox = Inbox(self.store)
         self.timer = QTimer()
         self.timer.timeout.connect(self.tick)
         self.timer.start(config.poll_seconds * 1000)
@@ -137,8 +144,7 @@ class Aiwa:
         self.step_session(segments, now)
         self.update_scoreboard(now)
         self.prompts.check_block(now, in_session=self.session is not None)
-        if self.prompts.planning_due(now) and not self.popup.isVisible():
-            self.prompts.open_planner(now)
+        self.prompts.check_evening(now)
 
     # --- focus sessions --------------------------------------------------------
 
@@ -146,7 +152,7 @@ class Aiwa:
         if self.session:
             self.stop_session(datetime.now(timezone.utc))
         else:
-            self.prompts.request_session()  # plans first if today's list is empty
+            self.tasks.request_session(self.start_session)  # offers to add a task if the list is empty
 
     def start_session(self) -> None:
         if self.session:
@@ -156,7 +162,7 @@ class Aiwa:
         self.session = FocusSession(now, self.config.session)
         self.session_checked = now
         self.tray.set_session(0)
-        self.prompts.offer_task()  # hand over the first task
+        self.tasks.start_session()  # pick a goal group, hand over its first task
 
     def stop_session(self, now: datetime, ended_by: str = "user") -> None:
         if not self.session:
@@ -164,6 +170,7 @@ class Aiwa:
         counts = {action.value: n for action, n in self.session.counts.items()}
         self.store.end_session(self.session_id, now, counts, ended_by)
         self.session = self.session_id = None
+        self.tasks.end_session()
         self.alarm.stop()
         self.tray.set_session(None)
         if self.popup.isVisible():
@@ -224,13 +231,14 @@ class Aiwa:
             self.scores.update(now)  # the first run fills in today so far
         except (OSError, RuntimeError):
             return
-        today = self.scores.today(now)
+        deep = self.scores.today(now).deep_minutes
+        today = self.scores.today(now, self.quota.today(now, deep))
         _, day_start, day_end = day_bounds(now, self.config.day_starts)
+        group, task = self.tasks.next_task(now)
         lines = (
             scoreboard_lines(today, self.config.focus.deep_threshold)
             + rhythm_lines(self.prompts.todays_block(now), now, self.rhythm.chain(now), self.rhythm.todays_sessions(now))
-            + task_lines(self.prompts.next_task(now), self.store.todos_done_between(day_start, day_end),
-                         len(self.store.open_todos(self.prompts.today(now))))
+            + task_lines(group, task, self.store.tasks_done_between(day_start, day_end))
         )
         self.tray.set_scoreboard(lines, today.goal_progress)
 
@@ -317,24 +325,21 @@ class Aiwa:
         if response == "snooze":
             self.policy.snooze(datetime.now(timezone.utc) + timedelta(minutes=30))
 
-    def open_inbox(self) -> None:
-        self.inbox.open()
-
     def snooze_hour(self) -> None:
         self.policy.snooze(datetime.now(timezone.utc) + timedelta(hours=1))
         self.tray.set_status("snoozed for 1 hour")
 
 
-def make_writer(config: Config):
-    """The AI for the planning conversation, if enabled and a key is set; otherwise None."""
+def make_helper(config: Config):
+    """The AI's step suggestions, if enabled and a key is set; otherwise None."""
     if not (config.ai_enabled and config.nvidia_api_key):
         return None
     try:
-        from aiwa.core.ai import PlanningWriter
+        from aiwa.core.ai import TaskHelper
 
-        return PlanningWriter(config.nvidia_api_key, config.ai)
+        return TaskHelper(config.nvidia_api_key, config.ai)
     except Exception as e:  # e.g. the langchain package is missing: plan with templates
-        print(f"planning AI unavailable ({e.__class__.__name__}); using built-in wording", flush=True)
+        print(f"AI helper unavailable ({e.__class__.__name__}); no step suggestions", flush=True)
         return None
 
 
@@ -364,7 +369,7 @@ def start_activitywatch(config: Config) -> ActivityWatchSupervisor | None:
 
 def run(config: Config) -> int:
     app = QApplication(sys.argv)
-    app.setQuitOnLastWindowClosed(False)  # closing the inbox must not quit the daemon
+    app.setQuitOnLastWindowClosed(False)  # closing a window must not quit the daemon
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     lock = QLockFile(str(DATA_DIR / "aiwa.lock"))  # released automatically if aiwa crashes
     if not lock.tryLock(0):

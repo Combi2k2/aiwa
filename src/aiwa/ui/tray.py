@@ -16,10 +16,10 @@ class Tray:
     def __init__(
         self,
         on_session: Callable[[], None],
-        on_plan: Callable[[], None],
+        on_tasks: Callable[[], None],
+        on_new_task: Callable[[], None],
         on_task_done: Callable[[], None],
         on_rate: Callable[[], None],
-        on_inbox: Callable[[], None],
         on_snooze: Callable[[], None],
         on_settings: Callable[[], None],
         on_autostart: Callable[[bool], None],
@@ -36,9 +36,9 @@ class Tray:
         self._menu.addSeparator()
         self._session = self._add("Start focus session", on_session)
         self._add("Current task done → next", on_task_done)
-        self._add("Plan…", on_plan)
+        self._add("New task…", on_new_task)
+        self._add("Tasks…", on_tasks)
         self._add("Rate my focus now…", on_rate)
-        self._add("Small-task inbox", on_inbox)
         self._add("Snooze nudges for 1 hour", on_snooze)
         self._menu.addSeparator()
         self._add("Open settings…", on_settings)

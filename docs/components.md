@@ -21,7 +21,7 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/categories.py` | Categorize + hide untracked names | `Segment`s → categorized, masked `Segment`s | `[[category]]`, `[[track]]` | `test_timeline.py` |
 | `core/classifier.py` | Decide when to ask about an app/site | what's in focus now → `Question` (track / classify / confirm) | `[classification]`, `[openjev] min_confidence` | `test_classifier.py` |
 | `core/openjev.py` | Suggest a category | app name or domain → (category, confidence) | `[openjev]` | `test_timeline.py` (mocked) |
-| `core/store.py` | Persist answers | categories, tracking choices, nudges, to-do list (`todos`), sessions, plans ↔ SQLite | — | `test_core.py`, others |
+| `core/store.py` | Persist answers | categories, tracking choices, nudges, goal groups + task backlog, state values, sessions, plans ↔ SQLite | — | `test_core.py`, others |
 | `core/focus/window.py` | Slice one window | `Segment`s, end, τ → stretches + switches (no scoring) | — | `test_focus.py` |
 | `core/focus/depth.py` | How deep | window → [0, 1] | `shallow_weight` | `test_focus.py` |
 | `core/focus/stability.py` | Stayed in a small working set? | window → fit × hit rate | `capacity` | `test_focus.py` |
@@ -37,14 +37,16 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/schedule.py` | Today's deep-work block (evening plan, else the default rhythm); when the warm-up / start reminders are due | day, plan → `Block`; now → `Reminder` | `[rhythm]` | `test_rhythm.py` |
 | `core/history.py` | Deep minutes per session; the chain of kept days | minute entries, outcomes → numbers | `kept_deep_minutes` | `test_rhythm.py` |
 | `core/rhythm.py` | Glue: today's block, today's sessions, chain length from stored data | store → blocks, sessions, chain | `[rhythm]` | `test_rhythm.py` |
-| `core/planning.py` | Planning conversation: the user's list → atomic tasks (≤ 50 min, specific); asks one question per vague / too-long task; the user's answer becomes smaller tasks | text ↔ messages; `DraftTask`s | `SESSION_MINUTES`, `SPECIFIC_ENOUGH`, `MAX_ROUNDS` | `test_planning.py` |
-| `core/openjev.py` `assess_task` | Deep or shallow, size (→ minutes), specific or vague | task text → `Assessment` | — | `test_planning.py` |
-| `core/ai.py` | The conversation's wording (NVIDIA-hosted model): split the list, ask the question, turn answers into steps; never invents tasks; time limit + skip after failure | prompts → text | `[ai]` | `test_planning.py` (fake) |
-| `rhythm_prompts.py` | When to show what: "what needs doing tomorrow?" (evening), plan-first before a session with an empty list, block reminder, one task at a time during a session | — | `planning_time` | manual |
+| `core/backlog.py` | The task backlog's logic: atomic or not (vague / over 50 min), estimate mismatch, workable tasks (steps before their parent), urgency (work left ÷ time to deadline), group choice (urgency × priority), next task | tasks, groups, now → answers | `SESSION_MINUTES`, `MISMATCH_RATIO`, `PRIORITY_WEIGHT` | `test_backlog.py` |
+| `core/quota.py` | Daily deep-work quota: +1 h today past 80%; base +1 h after 3 days in a row past 80%; 4–10 h | deep minutes → quota | `[scoreboard] quota_*` | `test_backlog.py` |
+| `core/openjev.py` `assess_task`, `suggest_group` | Deep or shallow, size, specific or vague; which existing goal group a task belongs to | task text → `Assessment` / group name | — | `test_backlog.py` |
+| `core/ai.py` | The AI helper (NVIDIA-hosted model): suggested steps when breaking a task down, a name for a new group; never adds tasks itself; time limit + pause after failures | prompts → suggestions | `[ai]` | — |
+| `tasks_controller.py` | Task window, new/edit form, break-down dialog, evening "anything new?", one group's tasks per session | — | — | manual |
+| `rhythm_prompts.py` | The block reminder and the timing of the evening prompt | — | `planning_time` | manual |
 | `core/analyzer.py`, `core/rules/` | Notice patterns outside sessions (currently none active: parked until scheduled deep-work blocks) | `Segment`s → `Finding`s | per rule | `test_core.py` |
 | `core/policy.py` | Allow an interruption? | `Finding`, now, away → yes/no | `[nudges]` | `test_core.py` |
 | `services/activitywatch.py` | Run ActivityWatch's server + watchers instead of its own tray app; restart crashed ones; stop them on quit; take over leftovers from a crashed run | module commands → running processes | `[activitywatch] manage`, `modules` | `test_activitywatch.py` |
-| `ui/` | Tray (scoreboard + block/chain/session/task lines, `board.py`), planning chat (`plan_chat.py`), scope icon with progress ring (`icon.py`), popup, inbox, looping alarm sound (`sound.py`, Qt audio) | — | `[session] alarm_sound`, `alarm_volume` | `test_scoreboard.py` (text), manual |
+| `ui/` | Tray (scoreboard + block/chain/session/task lines, `board.py`), task window / form / break-down dialog (`task_board.py`, `task_form.py`, `breakdown.py`), background calls (`background.py`), scope icon with progress ring (`icon.py`), popup, inbox, looping alarm sound (`sound.py`, Qt audio) | — | `[session] alarm_sound`, `alarm_volume` | `test_scoreboard.py` (text), manual |
 | `platforms/` | Per OS: start at login, where ActivityWatch is installed | — | — | manual |
 | `assets/sounds/` | Built-in sounds, with `CREDITS.md` (source and license) | — | — | — |
 | `app.py` | Wire it all into the tray app: 2 s poll + 15 s analysis; menu actions | — | `[analysis]` | manual |

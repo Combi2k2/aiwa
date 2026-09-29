@@ -18,7 +18,7 @@ class RhythmParams:
     days: tuple[str, ...] = ("mon", "tue", "wed", "thu", "fri")
     start: time = time(9, 0)
     minutes: int = 90
-    planning_time: time = time(21, 30)  # when to ask what needs to be done tomorrow
+    planning_time: time = time(21, 30)  # when to ask "anything new to take care of?"
     kept_deep_minutes: int = 25  # a block counts as kept with this much deep work in it
 
 

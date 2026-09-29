@@ -33,15 +33,20 @@ on, reminds you to wrap up after 50 minutes, and sounds an alarm if you're away
 for 5 minutes (it keeps ringing until you're back; choose your own sound with
 `alarm_sound` in the settings). Details in `docs/plan.md`.
 
-**A daily deep-work block** (Deep Work's "rhythmic" style) and **your own to-do list**:
-at 21:30 aiwa asks *what needs to be done tomorrow?* You list things in your own
-words; aiwa checks each one (openjev: deep or shallow, how long, specific enough?) and
-asks about anything vague or longer than one 50-minute session, until every task fits
-in one session. The AI (NVIDIA-hosted, `[ai]` settings) phrases the questions; without
-it, built-in wording is used. When a focus session starts, tasks are handed over one
-at a time. The tray shows the block, your chain of kept days, and the next task.
+**A daily deep-work block** (Deep Work's "rhythmic" style) at the same time every
+day (weekdays 09:00 by default, `[rhythm]`), with a **chain** of days you kept it.
 
-Everything else is in the tray menu: rate your focus, the small-task inbox,
+**Your task backlog** (tray → Tasks… / New task…): tasks come in over time, each with a
+deadline, your own estimate and a goal group. openjev checks each one; anything vague
+or longer than one 50-minute session is broken down (by you, with suggested steps from
+the AI when it's available). Each focus session works on one goal group, the most
+urgent one (work left vs. deadlines, weighted by the group's priority), and hands over
+its tasks one at a time. In the evening aiwa asks whether anything new came up.
+
+The goal is a **daily deep-work quota** (4 h to start, up to 10 h): the scope's ring
+fills toward it, and aiwa shows what you did, never what's left.
+
+Everything else is in the tray menu: rate your focus,
 snoozing nudges, **Open settings…** (the config file) and **Start at login**.
 
 Developer tools for inspecting the data processing: `uv run aiwa --help`

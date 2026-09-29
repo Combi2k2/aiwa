@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS nudges (
     message TEXT NOT NULL,
     response TEXT            -- e.g. 'ok', 'snooze', 'dismissed'
 );
-CREATE TABLE IF NOT EXISTS tasks (
+CREATE TABLE IF NOT EXISTS tasks (  -- the old small-task inbox, replaced by the backlog
     id INTEGER PRIMARY KEY,
     created_at TEXT NOT NULL,
     text TEXT NOT NULL,
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS block_log (
     action TEXT NOT NULL,       -- 'skipped'
     at TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS todos (
+CREATE TABLE IF NOT EXISTS todos (  -- the earlier day-plan list; read once to migrate into the backlog
     id INTEGER PRIMARY KEY,
     day TEXT NOT NULL,          -- the day it was planned for; open ones carry over
     text TEXT NOT NULL,
@@ -76,6 +76,32 @@ CREATE TABLE IF NOT EXISTS todos (
     status TEXT NOT NULL DEFAULT 'open',  -- 'open', 'done' or 'dropped'
     created_at TEXT NOT NULL,
     done_at TEXT
+);
+CREATE TABLE IF NOT EXISTS goal_groups (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    priority TEXT NOT NULL DEFAULT 'normal',  -- 'high', 'normal' or 'low'
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS backlog (
+    id INTEGER PRIMARY KEY,
+    group_id INTEGER REFERENCES goal_groups(id),
+    parent_id INTEGER REFERENCES backlog(id),  -- set for the steps of a broken-down task
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    deadline TEXT,                  -- YYYY-MM-DD
+    estimate INTEGER NOT NULL,      -- minutes, the user's own estimate
+    kind TEXT,                      -- openjev: 'deep' or 'shallow'
+    jev_minutes INTEGER,            -- openjev's size estimate (NULL = unclear)
+    jev_specific REAL,              -- openjev: how specific (0..1)
+    status TEXT NOT NULL DEFAULT 'open',  -- 'open', 'done' or 'dropped'
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    done_at TEXT
+);
+CREATE TABLE IF NOT EXISTS state (
+    key TEXT PRIMARY KEY,           -- small values aiwa remembers, e.g. the base quota
+    value TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS tracking (
     app_hash TEXT PRIMARY KEY,  -- sha256 of the app name
@@ -105,6 +131,7 @@ class Store:
                 self._db.execute(f"ALTER TABLE categories ADD COLUMN {column} {kind}")
         if "ended_by" not in {row[1] for row in self._db.execute("PRAGMA table_info(sessions)")}:
             self._db.execute("ALTER TABLE sessions ADD COLUMN ended_by TEXT")
+        self._migrate_todos()
 
     def log_nudge(self, finding: Finding, shown_at: datetime) -> int:
         cur = self._db.execute(
@@ -116,25 +143,6 @@ class Store:
 
     def set_response(self, nudge_id: int, response: str) -> None:
         self._db.execute("UPDATE nudges SET response = ? WHERE id = ?", (response, nudge_id))
-        self._db.commit()
-
-    def add_task(self, text: str, created_at: datetime) -> int:
-        cur = self._db.execute(
-            "INSERT INTO tasks (created_at, text) VALUES (?, ?)",
-            (created_at.isoformat(), text),
-        )
-        self._db.commit()
-        return cur.lastrowid
-
-    def open_tasks(self) -> list[tuple[int, str]]:
-        return self._db.execute(
-            "SELECT id, text FROM tasks WHERE done_at IS NULL ORDER BY id"
-        ).fetchall()
-
-    def complete_task(self, task_id: int, done_at: datetime) -> None:
-        self._db.execute(
-            "UPDATE tasks SET done_at = ? WHERE id = ?", (done_at.isoformat(), task_id)
-        )
         self._db.commit()
 
     def get_category(self, key: str) -> Category | None:
@@ -259,10 +267,6 @@ class Store:
         row = self._db.execute("SELECT block_start FROM plans WHERE day = ?", (day.isoformat(),)).fetchone()
         return Plan(day, time.fromisoformat(row[0])) if row else None
 
-    def todos_planned_for(self, day: date) -> int:
-        (n,) = self._db.execute("SELECT COUNT(*) FROM todos WHERE day = ?", (day.isoformat(),)).fetchone()
-        return n
-
     def log_block(self, day: date, action: str, at: datetime) -> None:
         self._db.execute("INSERT INTO block_log (day, action, at) VALUES (?, ?, ?)", (day.isoformat(), action, at.isoformat()))
         self._db.commit()
@@ -282,43 +286,99 @@ class Store:
             for a, b, pokes, by in rows
         ]
 
-    def add_todos(self, day: date, items: list[tuple[str, str | None, int | None]], now: datetime) -> None:
-        """Append (text, kind, minutes) items to the day's list, in order."""
-        (last,) = self._db.execute("SELECT COALESCE(MAX(position), 0) FROM todos WHERE day = ?", (day.isoformat(),)).fetchone()
-        self._db.executemany(
-            "INSERT INTO todos (day, text, kind, minutes, position, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            [(day.isoformat(), text, kind, minutes, last + i, now.isoformat()) for i, (text, kind, minutes) in enumerate(items, 1)],
+    def add_group(self, name: str, priority: str, now: datetime) -> int:
+        row = self._db.execute("SELECT id FROM goal_groups WHERE name = ?", (name,)).fetchone()
+        if row:
+            return row[0]
+        cur = self._db.execute(
+            "INSERT INTO goal_groups (name, priority, created_at) VALUES (?, ?, ?)", (name, priority, now.isoformat())
+        )
+        self._db.commit()
+        return cur.lastrowid
+
+    def groups(self) -> list:
+        from aiwa.core.backlog import Group
+
+        return [Group(i, n, p) for i, n, p in self._db.execute("SELECT id, name, priority FROM goal_groups ORDER BY name")]
+
+    def set_group_priority(self, group_id: int, priority: str) -> None:
+        self._db.execute("UPDATE goal_groups SET priority = ? WHERE id = ?", (priority, group_id))
+        self._db.commit()
+
+    def add_task(
+        self, group_id: int | None, title: str, description: str, deadline: date | None, estimate: int,
+        now: datetime, parent_id: int | None = None, assessment=None,
+    ) -> int:
+        (last,) = self._db.execute("SELECT COALESCE(MAX(position), 0) FROM backlog").fetchone()
+        cur = self._db.execute(
+            "INSERT INTO backlog (group_id, parent_id, title, description, deadline, estimate, kind, jev_minutes,"
+            " jev_specific, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (group_id, parent_id, title, description, deadline.isoformat() if deadline else None, estimate,
+             assessment.kind if assessment else None, assessment.minutes if assessment else None,
+             assessment.specific if assessment else None, last + 1, now.isoformat()),
+        )
+        self._db.commit()
+        return cur.lastrowid
+
+    def update_task(self, task_id: int, **fields) -> None:
+        allowed = {"group_id", "title", "description", "deadline", "estimate", "kind", "jev_minutes", "jev_specific"}
+        if not fields or not set(fields) <= allowed:
+            raise ValueError(f"can't update {set(fields) - allowed}")
+        if isinstance(fields.get("deadline"), date):
+            fields["deadline"] = fields["deadline"].isoformat()
+        assignments = ", ".join(f"{k} = ?" for k in fields)
+        self._db.execute(f"UPDATE backlog SET {assignments} WHERE id = ?", (*fields.values(), task_id))
+        self._db.commit()
+
+    def tasks(self, include_closed: bool = False) -> list:
+        from aiwa.core.backlog import Task
+
+        where = "" if include_closed else "WHERE status = 'open'"
+        rows = self._db.execute(
+            "SELECT id, group_id, parent_id, title, description, deadline, estimate, kind, status, position"
+            f" FROM backlog {where} ORDER BY position"
+        ).fetchall()
+        return [
+            Task(i, g, par, t, d or "", date.fromisoformat(dl) if dl else None, est, k, st, pos)
+            for i, g, par, t, d, dl, est, k, st, pos in rows
+        ]
+
+    def set_task_status(self, task_id: int, status: str, at: datetime) -> None:
+        self._db.execute(
+            "UPDATE backlog SET status = ?, done_at = ? WHERE id = ?",
+            (status, at.astimezone(timezone.utc).isoformat() if status != "open" else None, task_id),
         )
         self._db.commit()
 
-    def open_todos(self, until: date) -> list[Todo]:
-        """Open tasks planned for `until` or earlier (unfinished ones carry over), in order."""
-        rows = self._db.execute(
-            "SELECT id, day, text, kind, minutes, status FROM todos WHERE status = 'open' AND day <= ?"
-            " ORDER BY day, position",
-            (until.isoformat(),),
-        ).fetchall()
-        return [Todo(i, date.fromisoformat(d), t, k, m, st) for i, d, t, k, m, st in rows]
-
-    def todos_done_between(self, start: datetime, end: datetime) -> int:
+    def tasks_done_between(self, start: datetime, end: datetime) -> int:
         (n,) = self._db.execute(
-            "SELECT COUNT(*) FROM todos WHERE status = 'done' AND done_at >= ? AND done_at < ?",
+            "SELECT COUNT(*) FROM backlog WHERE status = 'done' AND done_at >= ? AND done_at < ?",
             (start.astimezone(timezone.utc).isoformat(), end.astimezone(timezone.utc).isoformat()),
         ).fetchone()
         return n
 
-    def set_todo_status(self, todo_id: int, status: str, at: datetime) -> None:
-        self._db.execute(
-            "UPDATE todos SET status = ?, done_at = ? WHERE id = ?",
-            (status, at.astimezone(timezone.utc).isoformat() if status != "open" else None, todo_id),
-        )
+    def get_state(self, key: str) -> str | None:
+        row = self._db.execute("SELECT value FROM state WHERE key = ?", (key,)).fetchone()
+        return row[0] if row else None
+
+    def set_state(self, key: str, value: str) -> None:
+        self._db.execute("INSERT OR REPLACE INTO state (key, value) VALUES (?, ?)", (key, value))
         self._db.commit()
 
-    def move_todo_to_end(self, todo_id: int, day: date) -> None:
-        """Put a task after everything else for `day` ("pick another one first")."""
-        (last,) = self._db.execute("SELECT COALESCE(MAX(position), 0) FROM todos WHERE day = ?", (day.isoformat(),)).fetchone()
-        self._db.execute("UPDATE todos SET day = ?, position = ? WHERE id = ?", (day.isoformat(), last + 1, todo_id))
-        self._db.commit()
+    def _migrate_todos(self) -> None:
+        """Open items from the earlier day-plan to-do list become backlog tasks (once)."""
+        if self.get_state("todos_migrated"):
+            return
+        now = datetime.now(timezone.utc)
+        for _, day, text, kind, minutes in self._db.execute(
+            "SELECT id, day, text, kind, minutes FROM todos WHERE status = 'open' ORDER BY day, position"
+        ).fetchall():
+            self._db.execute(
+                "INSERT INTO backlog (title, deadline, estimate, kind, position, created_at) VALUES (?, ?, ?, ?, "
+                "(SELECT COALESCE(MAX(position), 0) + 1 FROM backlog), ?)",
+                (text, day, minutes or 30, kind, now.isoformat()),
+            )
+        self.set_state("todos_migrated", now.isoformat())
 
     def forget_tracking(self, app: str) -> None:
         self._db.execute("DELETE FROM tracking WHERE app_hash = ?", (_hash(app),))
@@ -332,16 +392,6 @@ class Rating:
     rating: int | None  # None = skipped
     source: str
     snapshot: dict
-
-
-@dataclass(frozen=True)
-class Todo:
-    id: int
-    day: date
-    text: str
-    kind: str | None
-    minutes: int | None
-    status: str
 
 
 def _hash(app: str) -> str:

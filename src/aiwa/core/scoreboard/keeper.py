@@ -20,13 +20,11 @@ class ScoreKeeper:
         store: Store,
         load: LoadSegments,
         params: FocusParams,
-        goal_minutes: int,
         day_starts: time,
     ):
         self.store = store
         self.load = load
         self.params = params
-        self.goal_minutes = goal_minutes
         self.day_starts = day_starts
 
     def update(self, now: datetime) -> int:
@@ -45,6 +43,6 @@ class ScoreKeeper:
         self.store.save_minutes(entries)
         return len(entries)
 
-    def today(self, now: datetime) -> DayScore:
+    def today(self, now: datetime, goal_minutes: int = 0) -> DayScore:
         day, start, end = day_bounds(now, self.day_starts)
-        return summarize_day(day, self.store.minutes(start, end), self.params.deep_threshold, self.goal_minutes)
+        return summarize_day(day, self.store.minutes(start, end), self.params.deep_threshold, goal_minutes)

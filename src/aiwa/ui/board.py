@@ -7,7 +7,6 @@ from datetime import datetime
 from aiwa.core.history import SessionSummary
 from aiwa.core.schedule import Block
 from aiwa.core.scoreboard import DayScore
-from aiwa.core.store import Todo
 
 ACTIVITY_ORDER = ["deep", "shallow", "distraction", "neutral", "unclassified", "untracked", "away"]
 
@@ -51,11 +50,10 @@ def rhythm_lines(block: Block | None, now: datetime, chain: int, sessions: list[
     return lines
 
 
-def task_lines(next_task: Todo | None, done_today: int, left: int) -> list[str]:
-    if next_task is None and not done_today:
-        return ["Tasks: none planned yet (Plan…)"]
-    lines = [f"Tasks today: {done_today} done · {left} left"]
-    if next_task:
-        size = f" (~{next_task.minutes} min)" if next_task.minutes else ""
-        lines.append(f"Next task: {next_task.text}{size}")
+def task_lines(group, task, done_today: int) -> list[str]:
+    """What's been done today (never what's left) and what's next."""
+    lines = [f"Done today: {done_today} task{'s' if done_today != 1 else ''}"]
+    if task is not None:
+        where = f" · {group.name}" if group else ""
+        lines.append(f"Next: {task.title} (~{duration(task.estimate)}){where}")
     return lines

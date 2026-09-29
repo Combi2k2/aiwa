@@ -4,7 +4,6 @@ from aiwa.config import parse
 from aiwa.core.events import Finding, Level, Segment
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules.fragmentation import Fragmentation
-from aiwa.core.store import Store
 
 NOW = datetime(2026, 9, 27, 12, 0, tzinfo=timezone.utc)
 
@@ -48,11 +47,3 @@ def test_policy_enforces_gap_and_snooze():
 def test_policy_never_nudges_while_away():
     policy = NudgePolicy(min_between=timedelta(minutes=20))
     assert not policy.allow(Finding("r", "m", Level.NOTIFY), NOW, away=True)
-
-
-def test_store_tasks_round_trip(tmp_path):
-    store = Store(tmp_path / "aiwa.db")
-    task_id = store.add_task("reply to Alex", NOW)
-    assert store.open_tasks() == [(task_id, "reply to Alex")]
-    store.complete_task(task_id, NOW)
-    assert store.open_tasks() == []

@@ -100,10 +100,10 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
 - [x] **Plan tomorrow before bed** (prompted), so the morning starts with an obvious plan
   → also covers Newport's *shutdown ritual*. First version (time/task/warm-up dialog)
   replaced by "What needs to be done tomorrow?" feeding the to-do list (done)
-- [x] **aiwa's own to-do list**: tasks with status, day, order, sub-steps, deep/shallow
-  (the small-task inbox moves into it)
-- [~] **Planning service**: free text → tasks; big tasks → small steps; next task
-  (rule-based first, AI later)
+- [x] **Task backlog** (replaces the day-plan to-do list and the small-task inbox): incoming
+  tasks with deadline, own estimate, goal group; broken down until atomic
+- [x] **Goal groups + session group choice** (urgency × priority), one group per session
+- [x] **Daily deep-work quota** 4–10 h, rising past 80%
 - [x] **Tasks at session start**, handed over one at a time
 - [~] **AI integration**: conversation, planning, task breakdown, encouragement
 - [ ] **Sleep anchor**: wind-down pokes in the evening, escalating late at night; be

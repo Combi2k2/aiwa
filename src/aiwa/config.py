@@ -14,6 +14,7 @@ from platformdirs import user_config_path, user_data_path
 from aiwa.core.ai import AISettings
 from aiwa.core.events import Category
 from aiwa.core.focus.params import FocusParams
+from aiwa.core.quota import QuotaParams
 from aiwa.core.sampling import SamplingParams
 from aiwa.core.schedule import RhythmParams
 from aiwa.core.session import SessionParams
@@ -49,12 +50,16 @@ dwell_scale_seconds = 20        # continuity: mean time per item that scores 0.6
 deep_threshold = 0.6            # a minute counts as deep work at this intensity or above
 
 [scoreboard]
-daily_goal_minutes = 60  # deep minutes to aim for each day (shown as a ring on the tray icon)
+# The daily deep-work quota (the ring on the tray icon). Pass 80% of today's quota and it
+# rises by one step for today; pass 80% of the base 3 days in a row and the base rises.
+quota_start_minutes = 240    # 4 h
+quota_step_minutes = 60
+quota_max_minutes = 600      # 10 h
 day_starts = "04:00"     # when "today" begins; work after midnight counts toward the day before
 
 [ai]
-# The planning conversation's AI (NVIDIA's hosted models; key: NVIDIA_API_KEY in .env).
-# Without it, or when it doesn't answer in time, aiwa uses simple built-in wording.
+# The AI helper (NVIDIA's hosted models; key: NVIDIA_API_KEY in .env): suggests steps when
+# a task needs breaking down. Without it, or when it doesn't answer in time, you write the steps.
 enabled = true
 model = "nvidia/nemotron-3.5-lightning-30b-a3b"
 timeout_seconds = 30
@@ -62,11 +67,11 @@ thinking = true
 
 [rhythm]
 # A deep-work block at the same time every day (Deep Work's "rhythmic" style).
-# Each evening aiwa asks what needs to be done tomorrow (the planning conversation).
+# Each evening aiwa asks whether anything new needs taking care of.
 days = ["mon", "tue", "wed", "thu", "fri"]
 start = "09:00"
 minutes = 90
-planning_time = "21:30"      # when to ask what needs to be done tomorrow
+planning_time = "21:30"      # when to ask "anything new to take care of?"
 kept_deep_minutes = 25       # a block is kept (chain +1) with this much deep work in a session in it
 
 [session]
@@ -178,7 +183,7 @@ class Config:
     ask_after_seconds: int = 10
     ask_track_after_seconds: int = 5
     focus: FocusParams = field(default_factory=FocusParams)
-    daily_goal_minutes: int = 60
+    quota: QuotaParams = field(default_factory=QuotaParams)
     day_starts: time = time(4, 0)
     rhythm: RhythmParams = field(default_factory=RhythmParams)
     ai_enabled: bool = True
@@ -236,7 +241,11 @@ def parse(raw: dict) -> Config:
         ask_after_seconds=classification.get("ask_after_seconds", 10),
         ask_track_after_seconds=classification.get("ask_track_after_seconds", 5),
         focus=parse_focus(focus),
-        daily_goal_minutes=raw.get("scoreboard", {}).get("daily_goal_minutes", 60),
+        quota=QuotaParams(
+            start=raw.get("scoreboard", {}).get("quota_start_minutes", QuotaParams.start),
+            step=raw.get("scoreboard", {}).get("quota_step_minutes", QuotaParams.step),
+            maximum=raw.get("scoreboard", {}).get("quota_max_minutes", QuotaParams.maximum),
+        ),
         day_starts=time.fromisoformat(raw.get("scoreboard", {}).get("day_starts", "04:00")),
         rhythm=parse_rhythm(raw.get("rhythm", {})),
         ai_enabled=raw.get("ai", {}).get("enabled", True),

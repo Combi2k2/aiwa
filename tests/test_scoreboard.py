@@ -85,7 +85,7 @@ def test_keeper_fills_in_the_day_then_only_adds_new_minutes(tmp_path):
         return [Segment(at(-60), at(600), "Code", category=Category.DEEP)]
 
     day_start = datetime.combine(T0.astimezone().date(), time(0, 0), T0.astimezone().tzinfo)
-    keeper = ScoreKeeper(Store(tmp_path / "db"), load, PARAMS, goal_minutes=60, day_starts=time(0, 0))
+    keeper = ScoreKeeper(Store(tmp_path / "db"), load, PARAMS, day_starts=time(0, 0))
     now = day_start + timedelta(hours=10, seconds=30)
     assert keeper.update(now) == 600  # every minute since the day began
     assert keeper.update(now + timedelta(seconds=20)) == 0  # nothing new finished yet

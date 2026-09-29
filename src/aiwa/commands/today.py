@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from aiwa import config as config_mod
 from aiwa.commands.data import load_segments
+from aiwa.core.quota import QuotaKeeper
 from aiwa.core.scoreboard import ScoreKeeper, day_bounds, summarize_day
 from aiwa.core.store import Store
 from aiwa.ui.board import duration, scoreboard_lines
@@ -16,7 +17,6 @@ def keeper(config: config_mod.Config) -> ScoreKeeper:
         Store(config_mod.DB_PATH),
         lambda start, end: load_segments(config, start, end),
         config.focus,
-        config.daily_goal_minutes,
         config.day_starts,
     )
 
@@ -25,7 +25,8 @@ def run_today(config: config_mod.Config) -> int:
     k = keeper(config)
     now = datetime.now(timezone.utc)
     added = k.update(now)
-    today = k.today(now)
+    quota = QuotaKeeper(k.store, config.quota, config.day_starts, config.focus.deep_threshold)
+    today = k.today(now, quota.today(now, k.today(now).deep_minutes))
     print(f"{today.day:%A %Y-%m-%d} (minutes added now: {added})")
     for line in scoreboard_lines(today, config.focus.deep_threshold):
         print(" ", line)
@@ -42,7 +43,7 @@ def run_week(config: config_mod.Config) -> int:
         entries = k.store.minutes(start, end)
         if not entries:
             continue
-        d = summarize_day(day, entries, config.focus.deep_threshold, config.daily_goal_minutes)
+        d = summarize_day(day, entries, config.focus.deep_threshold, config.quota.start)
         mean = f"{d.mean_intensity:.2f}" if d.mean_intensity is not None else "   –"
         print(f"  {day:%a %Y-%m-%d}{duration(d.deep_minutes):>6}{d.longest_streak:>7}m{mean:>7}  {d.goal_progress:.0%}")
     return 0

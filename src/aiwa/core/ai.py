@@ -1,8 +1,8 @@
-"""The conversational AI for planning (NVIDIA's hosted models via langchain).
+"""The AI helper for tasks (NVIDIA's hosted models via langchain).
 
-It only helps the user put *their own* plan into words: splitting a list into
-tasks, asking one short question about a task that is vague or too big, and
-turning the answer into steps. It never invents tasks. Every call has a time
+It only helps the user with *their own* tasks: suggesting steps when a task
+needs breaking down, and a name for a new goal group. Suggestions are always
+shown for the user to edit; it never adds tasks on its own. Every call has a time
 limit; on any failure it returns None and the planning falls back to templates.
 After a failure the AI is skipped for a while, so a service that's down doesn't
 make the user wait for a timeout on every message.
@@ -39,8 +39,8 @@ class AISettings:
     retry_after: float = 300.0  # after a failure, skip the AI for this many seconds
 
 
-class PlanningWriter:
-    """Implements planning.Writer with an NVIDIA-hosted chat model."""
+class TaskHelper:
+    """Suggestions for breaking down tasks and naming goal groups, from an NVIDIA-hosted model."""
 
     def __init__(self, api_key: str, settings: AISettings):
         from langchain_nvidia_ai_endpoints import ChatNVIDIA  # imported only when the AI is used
@@ -65,27 +65,24 @@ class PlanningWriter:
             **extra,
         )
 
-    def split(self, text: str) -> list[str] | None:
+    def steps(self, title: str, description: str, estimate: int, reason: str) -> list[str] | None:
+        """Possible steps to break a task into, for the user to edit and choose from."""
+        detail = f"\nDescription: {description}" if description else ""
         return _json_list(self._ask(
-            "Split this into separate to-do items. Keep the user's wording; don't add, merge or drop "
-            f"anything. Reply with only a JSON array of strings.\n\n{text}"
+            f"The user's task: “{title}”{detail}\nTheir estimate: {estimate} minutes. It is "
+            f"{REASONS.get(reason, reason)}. Suggest 2 to 5 concrete steps, each doable in under 50 "
+            "minutes, based only on what the task says (these are suggestions the user will edit). "
+            "Reply with only a JSON array of strings."
         ))
 
-    def question(self, task: str, reason: str) -> str | None:
-        return self._ask(
-            f"The user's to-do item: “{task}”. It is {REASONS.get(reason, reason)}. Ask ONE short, "
-            "specific question that helps them break it into concrete steps of under 50 minutes each "
-            "(for example which part, or how much). Say they can answer with steps, one per line, or "
-            "type “keep” to leave it as it is. Reply with the question only."
+    def group_name(self, title: str, description: str) -> str | None:
+        """A short name for a new goal this task belongs to (e.g. "Statistics final")."""
+        detail = f"\nDescription: {description}" if description else ""
+        name = self._ask(
+            f"The user's task: “{title}”{detail}\nName the goal or project it belongs to in 1 to 3 "
+            "words. Reply with the name only."
         )
-
-    def refine(self, task: str, question: str, answer: str) -> list[str] | None:
-        return _json_list(self._ask(
-            f"To-do item: “{task}”\nYou asked: {question}\nThe user answered: {answer}\n\n"
-            "Turn the answer into to-do items in the user's own words, each one concrete step. If the "
-            "answer only adds detail, return the item rewritten with that detail. Don't add steps the "
-            "user didn't mention. Reply with only a JSON array of strings."
-        ))
+        return name.strip().strip('"“”.') if name else None
 
     def _invoke(self, messages):
         with warnings.catch_warnings():
