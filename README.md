@@ -56,6 +56,10 @@ still at the computer ("10 more minutes" once per night, or lock the screen), an
 00:00 the alarm rings until you lock the screen or step away. The tray shows when you
 stopped last night and started this morning. Settings under `[bedtime]`.
 
+**Routines**: after you've been away (or the laptop slept), aiwa sometimes asks what it
+was: a meal, a shower, sport… More often for longer absences, never for short ones;
+overnight is logged as sleep. This builds up your typical times for later reminders.
+
 Everything else is in the tray menu: rate your focus,
 snoozing nudges, **Open settings…** (the config file) and **Start at login**.
 

@@ -47,6 +47,8 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `bedtime_prompts.py` | Shows the wind-down popups, rings/silences its own alarm, locks the screen; logs last activity at night and first in the morning | — | — | manual |
 | `core/morning.py` | Morning start: greet on the first activity, routine timer (time + clamp(20%, 5, 20) min), alarm when not back, then suggest the first session | now, active? → `Action` | — | `test_morning.py` |
 | `morning_prompts.py` | Shows today's work and the routine question, rings its own alarm, suggests the session; once per day | — | — | manual |
+| `core/routines.py` | Absences (away or laptop asleep, ≥ 5 min) → sometimes "what was that?" (chance by duration), likely activities by duration and time of day; the taxonomy; overnight = sleep | active? over time → `Absence`s | — | `test_routines.py` |
+| `routine_prompts.py` | Stores every absence, asks about some (likely options, "Other…" → categories → activities, "Skip") | — | — | manual |
 | `core/analyzer.py`, `core/rules/` | Notice patterns outside sessions (currently none active: parked until scheduled deep-work blocks) | `Segment`s → `Finding`s | per rule | `test_core.py` |
 | `core/policy.py` | Allow an interruption? | `Finding`, now, away → yes/no | `[nudges]` | `test_core.py` |
 | `services/activitywatch.py` | Run ActivityWatch's server + watchers instead of its own tray app; restart crashed ones; stop them on quit; take over leftovers from a crashed run | module commands → running processes | `[activitywatch] manage`, `modules` | `test_activitywatch.py` |

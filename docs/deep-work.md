@@ -112,7 +112,8 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   news) as an on-ramp, time-boxed. (No separate warm-up reminder: decided 2026-09-29)
 - [ ] **Calendar / task-tracker integration** (calendar, Jira, Trello): place deep work
   inside events that look like deep work, without clashing with the rest
-- [ ] **Daily routines** (meals, shower, sport, morning routine): learned from the user's
-  own data (typical times, not fixed numbers), then gently prompted
+- [~] **Daily routines** (meals, shower, sport, morning routine): learned from the user's
+  own data (typical times, not fixed numbers), then gently prompted. Collecting answers: done;
+  reminders from typical times: next
 - [ ] **Shallow and distraction periods** scheduled in the open time; deep work capacity
   is limited, so planned downtime is part of the design

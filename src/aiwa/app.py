@@ -33,6 +33,7 @@ from aiwa.core.store import Store
 from aiwa.bedtime_prompts import BedtimePrompts
 from aiwa.core.backlog import minutes_text
 from aiwa.morning_prompts import MorningPrompts
+from aiwa.routine_prompts import RoutinePrompts
 from aiwa.rhythm_prompts import RhythmPrompts
 from aiwa.tasks_controller import TasksController
 from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, server_check
@@ -126,6 +127,7 @@ class Aiwa:
             todays_work=self.todays_work,
             request_session=lambda: self.tasks.request_session(self.start_session),
         )
+        self.routines = RoutinePrompts(self.store, self.popup, config.bedtime.wind_down, config.day_starts)
         self.prompts = RhythmPrompts(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
             request_session=lambda: self.tasks.request_session(self.start_session),
@@ -173,6 +175,7 @@ class Aiwa:
         active = latest is not None and not latest.away and now - latest.end <= NO_DATA_AFTER
         self.bedtime.step(now, active)
         self.morning.step(now, active, in_session=self.session is not None)
+        self.routines.step(now, active)
         self.update_scoreboard(now)
         self.prompts.check_block(now, in_session=self.session is not None)
         self.prompts.check_evening(now)

@@ -99,6 +99,13 @@ CREATE TABLE IF NOT EXISTS backlog (
     created_at TEXT NOT NULL,
     done_at TEXT
 );
+CREATE TABLE IF NOT EXISTS absences (
+    id INTEGER PRIMARY KEY,
+    start TEXT NOT NULL,            -- last activity before it (UTC)
+    end TEXT NOT NULL,              -- first activity after it (UTC)
+    activity TEXT,                  -- e.g. 'meal', 'shower' (core/routines.py TAXONOMY); NULL = unknown
+    source TEXT NOT NULL            -- 'user' (answered), 'auto' (overnight → sleep), 'unasked', 'skipped'
+);
 CREATE TABLE IF NOT EXISTS state (
     key TEXT PRIMARY KEY,           -- small values aiwa remembers, e.g. the base quota
     value TEXT NOT NULL
@@ -358,6 +365,22 @@ class Store:
             (start.astimezone(timezone.utc).isoformat(), end.astimezone(timezone.utc).isoformat()),
         ).fetchone()
         return n
+
+    def add_absence(self, start: datetime, end: datetime, activity: str | None, source: str) -> int:
+        cur = self._db.execute(
+            "INSERT INTO absences (start, end, activity, source) VALUES (?, ?, ?, ?)",
+            (start.astimezone(timezone.utc).isoformat(), end.astimezone(timezone.utc).isoformat(), activity, source),
+        )
+        self._db.commit()
+        return cur.lastrowid
+
+    def set_absence_activity(self, absence_id: int, activity: str | None, source: str) -> None:
+        self._db.execute("UPDATE absences SET activity = ?, source = ? WHERE id = ?", (activity, source, absence_id))
+        self._db.commit()
+
+    def absences(self) -> list[tuple[datetime, datetime, str | None, str]]:
+        rows = self._db.execute("SELECT start, end, activity, source FROM absences ORDER BY start").fetchall()
+        return [(datetime.fromisoformat(a), datetime.fromisoformat(b), act, src) for a, b, act, src in rows]
 
     def get_state(self, key: str) -> str | None:
         row = self._db.execute("SELECT value FROM state WHERE key = ?", (key,)).fetchone()
