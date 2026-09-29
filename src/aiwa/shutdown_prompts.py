@@ -1,5 +1,10 @@
-"""The shutdown ritual in the running app: today's notes → anything on your mind →
-tomorrow → "shutdown complete". Timing lives in core/shutdown.py.
+"""The shutdown ritual in the running app: today's notes → wrap-up in your own
+words → tomorrow → "shutdown complete".
+
+When it's offered (core/shutdown.py, core/offtime.py):
+- focus low × close to the shutdown time (checked every tick);
+- a session ends near the usual off time;
+- the wrap-up alarm, if the user set one: offered when wrap-ups were often missed.
 
 The steps run one after another whenever no popup or task window is open, so
 cancelling a task form just moves on to the next step.
@@ -7,11 +12,12 @@ cancelling a task form just moves on to the next step.
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Callable
 
+from aiwa.core.offtime import OffTimeParams, near, off_time, often_missed
 from aiwa.core.scoreboard.day import day_bounds
-from aiwa.core.shutdown import ShutdownParams, is_due
+from aiwa.core.shutdown import ShutdownParams, shift_ending, workday
 from aiwa.core.store import Store
 from aiwa.tasks_controller import TasksController
 from aiwa.ui.popup import Popup
@@ -19,8 +25,12 @@ from aiwa.ui.popup import Popup
 
 class ShutdownPrompts:
     def __init__(self, store: Store, popup: Popup, tasks: TasksController, params: ShutdownParams,
-                 day_starts: time, wrap_up: Callable[[datetime], str]):
+                 day_starts: time, wrap_up: Callable[[datetime], str], alarm,
+                 off_params: OffTimeParams = OffTimeParams()):
         self.store = store
+        self.alarm = alarm  # its own player (ui.sound.Alarm), for the wrap-up alarm
+        self.off_params = off_params
+        self._stats: tuple[datetime, time | None, list[bool]] | None = None  # (computed at, off time, done by day)
         self.popup = popup
         self.tasks = tasks
         self.params = params
@@ -41,25 +51,104 @@ class ShutdownPrompts:
     def _busy(self) -> bool:
         return self.popup.isVisible() or self.tasks.form.isVisible() or self.tasks.breakdown_dialog.isVisible()
 
-    def step(self, now: datetime, active: bool, in_session: bool) -> None:
-        """Every poll (a few seconds)."""
-        if self._busy():
-            return
-        if self.stage is not None:
+    def step(self, now: datetime) -> None:
+        """Every poll (a few seconds): move the running ritual on."""
+        if self.stage is not None and not self._busy():
             self._next(now)
-            return
+
+    def check(self, now: datetime, active: bool, in_session: bool, intensity: float | None) -> None:
+        """Every tick: offer the shutdown when the workday seems to be ending."""
         day = day_bounds(now, self.day_starts)[0]
-        if (not active or in_session or not is_due(now, day, self.day_starts, self.params)
-                or self.done_today(now) or (self.snoozed_until and now < self.snoozed_until)):
+        if (self._busy() or self.stage is not None or not active or in_session or not workday(day, self.params)
+                or self.done_today(now)):
             return
+        if self._alarm_due(now, day):
+            self.store.set_state(f"shutdown_alarm_rang:{day.isoformat()}", now.isoformat())
+            self.alarm.start()
+            self.offer(now, "Your wrap-up alarm: time to shut down the workday.")
+            return
+        if self.snoozed_until and now < self.snoozed_until:
+            return
+        if shift_ending(now, day, self.day_starts, self.params, intensity) >= self.params.offer_at:
+            self.offer(now)
+            return
+        self._maybe_offer_alarm(now)
+
+    def session_ended(self, now: datetime) -> None:
+        """A session just ended: near the usual off time, remind the user to wrap up."""
+        day = day_bounds(now, self.day_starts)[0]
+        if (workday(day, self.params) and not self.done_today(now) and self.stage is None
+                and near(now, self._off_time(now), self.off_params)):
+            self.offer(now, "Session done, and it's about when you usually stop. Wrap up the day before you go?")
+
+    def offer(self, now: datetime, message: str | None = None) -> None:
         self.popup.ask(
-            "Time to shut down the workday: go through today's notes, write down what's still on your mind, look at tomorrow.",
-            lambda a: self._start(now) if a == "start" else self._snooze(now),
+            message or "Your workday seems to be winding down. Time to shut it down: today's notes, a wrap-up, tomorrow.",
+            lambda a: self._offer_answer(a, now),
             [("Start shutdown", "start"), ("Later (30 min)", "later")],
         )
 
-    def _snooze(self, now: datetime) -> None:
-        self.snoozed_until = now + self.params.snooze
+    def _offer_answer(self, answer: str, now: datetime) -> None:
+        self.alarm.stop()
+        if answer == "start":
+            self._start(datetime.now(now.tzinfo))
+        else:
+            self.snoozed_until = datetime.now(now.tzinfo) + self.params.snooze
+
+    # --- the usual off time and the wrap-up alarm ----------------------------------------------
+
+    def _statistics(self, now: datetime) -> tuple[time | None, list[bool]]:
+        """The off time and recent wrap-ups (done?, newest first); recomputed hourly."""
+        if self._stats is None or now - self._stats[0] >= timedelta(hours=1):
+            stops = [start for start, end, _, _ in self.store.absences() if end - start >= self.off_params.min_absence]
+            today = day_bounds(now, self.day_starts)[0]
+            done = []
+            for back in range(1, 15):
+                day = today - timedelta(days=back)
+                if workday(day, self.params) and self._aiwa_ran(day, now):
+                    done.append(self.store.get_state(f"shutdown:{day.isoformat()}") == "done")
+            self._stats = (now, off_time(stops, self.params.time, self.off_params), done)
+        return self._stats[1], self._stats[2]
+
+    def _aiwa_ran(self, day: date, now: datetime) -> bool:
+        start = datetime.combine(day, self.day_starts, now.astimezone().tzinfo)
+        return bool(self.store.minutes(start, start + timedelta(days=1)))
+
+    def _off_time(self, now: datetime) -> time | None:
+        return self._statistics(now)[0]
+
+    def _alarm_due(self, now: datetime, day: date) -> bool:
+        saved = self.store.get_state("shutdown_alarm")
+        if not saved or self.store.get_state(f"shutdown_alarm_rang:{day.isoformat()}"):
+            return False
+        local = now.astimezone()
+        return local >= datetime.combine(day, time.fromisoformat(saved), local.tzinfo)
+
+    def _maybe_offer_alarm(self, now: datetime) -> None:
+        if self.store.get_state("shutdown_alarm"):
+            return
+        off, done = self._statistics(now)
+        if off is None or not often_missed(done, self.off_params):
+            return
+        offered = self.store.get_state("shutdown_alarm_offered")
+        if offered and now - datetime.fromisoformat(offered) < self.off_params.offer_every:
+            return
+        local = now.astimezone()
+        off_at = datetime.combine(local.date(), off, local.tzinfo)
+        if not off_at - timedelta(minutes=20) <= local <= off_at:
+            return
+        self.store.set_state("shutdown_alarm_offered", now.isoformat())
+        options = []
+        for minutes_before in (15, 30):
+            t = (off_at - timedelta(minutes=minutes_before)).time().replace(second=0, microsecond=0)
+            options.append((f"At {t:%H:%M}", t.strftime("%H:%M")))
+        self.popup.ask(
+            f"You usually stop around {off:%H:%M}, and the wrap-up was missed on "
+            f"{sum(1 for d in done[:self.off_params.missed_days] if not d)} of the last {min(len(done), self.off_params.missed_days)} workdays. "
+            "Set a daily alarm for your wrap-up?",
+            lambda a: self.store.set_state("shutdown_alarm", a) if a != "no" else None,
+            options + [("No thanks", "no")],
+        )
 
     def _start(self, now: datetime) -> None:
         self.store.set_state(self._key(now), "started")
@@ -80,7 +169,7 @@ class ShutdownPrompts:
             self.stage = "mind"
         if self.stage == "mind":
             message = ("Anything else?" if self.mind_asked else
-                       "Anything still on your mind for work? Write it down as a task so you can let it go.")
+                       "Wrap up your day in your own words: anything still open? Write it down as a task so you can let it go.")
             self.mind_asked = True
             self.popup.ask_text(message, self._mind_answer, placeholder="something to do…", skip_label="That's all")
             return

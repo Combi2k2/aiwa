@@ -138,7 +138,7 @@ class Aiwa:
         self.capture = CapturePrompts(self.store, self.popup, self.tasks,
                                       (lambda note: is_todo(openjev, note)) if openjev else None)
         self.shutdown = ShutdownPrompts(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
-                                        self.shutdown_wrap_up)
+                                        self.shutdown_wrap_up, alarm=Alarm(config.alarm_sound, config.alarm_volume))
         self.prompts = RhythmPrompts(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
             request_session=lambda: self.tasks.request_session(self.start_session),
@@ -189,6 +189,8 @@ class Aiwa:
         self.routines.step(now, active, away_since=latest.start if latest is not None and latest.away else None)
         self.update_scoreboard(now)
         self.capture.refresh()
+        focus = moment(segments, now, self.config.focus.main_horizon, self.config.focus).intensity
+        self.shutdown.check(now, active, in_session=self.session is not None, intensity=focus)
         self.prompts.check_block(now, in_session=self.session is not None)
         if not self.shutdown.done_today(now):  # the shutdown already asked what's on your mind
             self.prompts.check_evening(now)
@@ -252,6 +254,8 @@ class Aiwa:
         self.tray.set_session(None)
         if self.popup.isVisible():
             self.popup.hide()
+        if ended_by == "user":
+            self.shutdown.session_ended(now)  # near the usual off time: wrap up the day?
 
     def step_session(self, segments: list[Segment], now: datetime) -> None:
         if not self.session:
@@ -362,7 +366,7 @@ class Aiwa:
         in_session = self.session is not None
         # after the workday is shut down, no more work questions
         self.capture.step(now, current, category, in_session=in_session or self.shutdown.done_today(now))
-        self.shutdown.step(now, active=current is not None and not current.away, in_session=in_session)
+        self.shutdown.step(now)
         if question and not self.popup.isVisible():
             self.ask(question)
         elif self.sampling and not self.popup.isVisible():

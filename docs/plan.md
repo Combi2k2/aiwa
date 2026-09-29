@@ -262,10 +262,22 @@ Build order: morning start → routine questions → offline tasks → consisten
 - **Answers "offline work" outside a session:** an insight to use later.
 
 ## Decisions 2026-09-29: shutdown ritual
-- At 18:00 on weekdays (`[shutdown]`), while active and not in a session: "Time to shut
-  down the workday" → Start shutdown / Later (30 min).
-- Steps: each of today's unreviewed notes (Make it a task / Keep as note) → "Anything
-  still on your mind for work?" (typed; each answer opens the task form; repeats until
+- **When it's offered** (revised 2026-09-29, the user's design): a shift ends when focus is
+  low, and the shutdown time (18:00 weekdays, `[shutdown]`) is near. Offer when
+  closeness × lowness ≥ 0.5. Closeness is asymmetric: e^(−time left / 45 min) before the
+  shutdown time (16:00 → 0.07, 17:00 → 0.26, 17:30 → 0.51), 1 from then on. Lowness =
+  1 − (10-min focus / 0.6), 1 with no data. Never while focused, never in a session.
+  Start shutdown / Later (30 min).
+- **Not "reflect right after stopping"** (the user is gone by then). Instead, stats:
+  - **Off time** = the peak of the smoothed distribution of 30+ min absence starts, from
+    3 h before to 4 h after the shutdown time (lunch excluded), after 5+ days of data.
+  - A session ended by the user within 30 min of the off time → "wrap up the day?"
+  - Wrap-up missed on 3+ of the last 5 workdays (aiwa running) → in the 20 min before the
+    off time, offer a daily wrap-up alarm (off time − 15 or − 30 min; at most weekly).
+    The alarm rings (after any session) until the offer is answered.
+- Steps: each of today's unreviewed notes (Make it a task / Keep as note) → "Wrap up
+  your day in your own words: anything still open?" (the user wraps up themselves; new
+  tasks are rare since capture happens during the day; typed; each answer opens the task form; repeats until
   "That's all") → today's deep work vs. quota, tomorrow's block and first task →
   "Shutdown complete".
 - Once started, capture questions stop for the rest of the day, and the 21:30 "anything

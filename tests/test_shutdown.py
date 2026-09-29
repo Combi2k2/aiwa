@@ -1,6 +1,7 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
-from aiwa.core.shutdown import ShutdownParams, is_due, workday
+from aiwa.core.offtime import OffTimeParams, near, off_time, often_missed
+from aiwa.core.shutdown import ShutdownParams, closeness, lowness, shift_ending, workday
 
 TUESDAY, SATURDAY = date(2026, 9, 29), date(2026, 10, 3)
 P = ShutdownParams()
@@ -10,13 +11,54 @@ def local(day: date, hour: int, minute: int = 0) -> datetime:
     return datetime.combine(day, time(hour, minute)).astimezone()
 
 
-def test_due_from_18_until_the_day_ends():
-    assert not is_due(local(TUESDAY, 17, 59), TUESDAY, time(4), P)
-    assert is_due(local(TUESDAY, 18), TUESDAY, time(4), P)
-    assert is_due(local(date(2026, 9, 30), 1), TUESDAY, time(4), P)  # 01:00 still belongs to Tuesday
+def test_closeness_is_asymmetric():
+    at_six = local(TUESDAY, 18)
+    assert round(closeness(local(TUESDAY, 16), at_six, P.lead), 2) == 0.07
+    assert round(closeness(local(TUESDAY, 17, 30), at_six, P.lead), 2) == 0.51
+    assert closeness(local(TUESDAY, 19), at_six, P.lead) == 1.0
+
+
+def test_lowness():
+    assert lowness(None, 0.6) == 1.0
+    assert lowness(0.6, 0.6) == 0.0 and lowness(0.8, 0.6) == 0.0
+    assert lowness(0.3, 0.6) == 0.5
+
+
+def test_offered_when_focus_is_low_near_the_shutdown_time_never_while_focused():
+    def ending(hour, minute, intensity):
+        return shift_ending(local(TUESDAY, hour, minute), TUESDAY, time(4), P, intensity) >= P.offer_at
+
+    assert not ending(16, 0, None)  # idle at 16:00: too early
+    assert ending(17, 45, 0.1)  # reading email at 17:45
+    assert not ending(17, 45, 0.45)
+    assert ending(18, 30, 0.3)
+    assert not ending(19, 0, 0.7)  # focused: never interrupt that
+    assert ending(19, 0, None)
 
 
 def test_workdays_only_by_default():
     assert workday(TUESDAY, P) and not workday(SATURDAY, P)
-    assert not is_due(local(SATURDAY, 19), SATURDAY, time(4), P)
+    assert shift_ending(local(SATURDAY, 19), SATURDAY, time(4), P, None) == 0
     assert not workday(TUESDAY, ShutdownParams(enabled=False))
+
+
+def test_off_time_is_the_evening_peak_not_lunch():
+    stops = []
+    for d in range(7):
+        day = TUESDAY - timedelta(days=d)
+        stops += [local(day, 12, 30), local(day, 12, 35)]  # lunch: more stops, but outside the window
+        stops.append(local(day, 17, 35 + d % 3 * 5))  # 17:35–17:45
+    assert off_time(stops, time(18)) == time(17, 40)
+
+
+def test_off_time_needs_enough_days():
+    stops = [local(TUESDAY - timedelta(days=d), 17, 40) for d in range(4)]
+    assert off_time(stops, time(18)) is None
+
+
+def test_near_and_often_missed():
+    assert near(local(TUESDAY, 17, 20), time(17, 40))
+    assert not near(local(TUESDAY, 16, 50), time(17, 40))
+    assert not near(local(TUESDAY, 17, 40), None)
+    assert often_missed([False, True, False, False, True])
+    assert not often_missed([False, True, True, False, True])
