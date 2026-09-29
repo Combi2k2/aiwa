@@ -88,6 +88,7 @@ class AbsenceTracker:
 
     def __init__(self, rng: random.Random | None = None, always_ask: bool = False):
         self.last_active: datetime | None = None
+        self.returned_at: datetime | None = None  # end of the last absence
         self.rng = rng or random.Random()
         self.always_ask = always_ask  # for trying it out: ask about every absence of 5+ minutes
 
@@ -100,10 +101,15 @@ class AbsenceTracker:
         """
         if not active:
             if away_since is not None and self.last_active is not None:
+                if self.returned_at is not None:
+                    # ActivityWatch can still report the previous away period for a moment
+                    # after the user is back: never reach back into an absence already reported
+                    away_since = max(away_since, self.returned_at)
                 self.last_active = min(self.last_active, away_since)
             return None
         previous, self.last_active = self.last_active, now
         if previous is not None and now - previous >= MIN_ABSENCE:
+            self.returned_at = now
             return Absence(previous, now)
         return None
 

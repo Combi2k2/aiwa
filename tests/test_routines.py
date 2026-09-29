@@ -93,3 +93,13 @@ def test_absence_starts_at_the_last_input_not_when_away_was_noticed():
     tracker.step(at(4), True)
     tracker.step(at(5), False, away_since=at(2))  # now marked away, backdated to the last input
     assert tracker.step(at(9), True) == Absence(at(2), at(9))
+
+
+def test_a_stale_away_period_after_coming_back_is_not_reported_again():
+    tracker = AbsenceTracker()
+    tracker.step(at(0), True)
+    tracker.step(at(5), False, away_since=at(0))
+    assert tracker.step(at(10), True) == Absence(at(0), at(10))
+    # ActivityWatch still shows the old away period (from minute 0) for a moment
+    tracker.step(at(10.5), False, away_since=at(0))
+    assert tracker.step(at(11), True) is None  # not the same absence a second time
