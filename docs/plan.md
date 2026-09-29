@@ -176,3 +176,20 @@ Deep work still involves switching, but within a small set of related items (a
 
 **Open questions:** do unfinished tasks carry over automatically? Split big tasks
 by hand before the AI planner exists, or wait for it?
+
+
+## Decisions 2026-09-29 (later): tasks are an incoming backlog, not a daily plan
+- **Input = new incoming tasks**, not a plan for tomorrow. The list grows over time;
+  the evening prompt asks "anything new to take care of?", not "plan tomorrow".
+- **Entered through a UI** (a minimal Jira-like task list: "+", title, description),
+  not a chat prompt. One user, one "life project".
+- **Each task needs a deadline and the user's own time estimate.** openjev classifies it
+  (deep/shallow) and checks the estimate; the deadline drives urgency.
+- **Not atomic** (vague, or longer than one 50-min session) → the user breaks it down
+  themselves; the AI suggests possible steps.
+- **Productivity, not guilt:** measure work done (tasks finished, deep minutes toward a
+  **daily deep-work quota of ~4 hours**), never "tasks left undone".
+- **Goal groups:** tasks are grouped by goal (suggested, editable). Each session works on
+  one group, chosen by urgency (deadlines) and importance, so the user doesn't switch
+  between goals within a session.
+- The planning chat built earlier today is superseded by this.
