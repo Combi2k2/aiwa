@@ -15,6 +15,7 @@ class SessionSummary:
     deep_minutes: int
     pokes: int
     ended_by: str | None  # 'user', 'away', or None while running
+    group_id: int | None = None  # the goal group worked on
 
 
 def deep_minutes(entries: list[MinuteEntry], start: datetime, end: datetime, threshold: float) -> int:

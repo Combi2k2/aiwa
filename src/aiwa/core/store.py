@@ -54,7 +54,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     asked_done INTEGER DEFAULT 0,
     wrap_ups INTEGER DEFAULT 0,
     alarms INTEGER DEFAULT 0,
-    ended_by TEXT               -- 'user', or 'away' (ended itself after 10 min away)
+    ended_by TEXT,              -- 'user', or 'away' (ended itself after 10 min away)
+    group_id INTEGER            -- the goal group worked on (the last one started in the session)
+);
+CREATE TABLE IF NOT EXISTS weekly_reviews (
+    week TEXT PRIMARY KEY,      -- the Monday of the reviewed week
+    done_at TEXT NOT NULL,
+    answer TEXT                 -- "what will you change next week?"; NULL = nothing
 );
 CREATE TABLE IF NOT EXISTS plans (
     day TEXT PRIMARY KEY,       -- the day being planned (YYYY-MM-DD, aiwa's day)
@@ -163,6 +169,8 @@ class Store:
                              ("source_app", "TEXT"), ("source_title", "TEXT"), ("source_url", "TEXT")]:
             if column not in backlog_columns:  # databases created by older versions
                 self._db.execute(f"ALTER TABLE backlog ADD COLUMN {column} {kind}")
+        if "group_id" not in {row[1] for row in self._db.execute("PRAGMA table_info(sessions)")}:
+            self._db.execute("ALTER TABLE sessions ADD COLUMN group_id INTEGER")
         if "ended_by" not in {row[1] for row in self._db.execute("PRAGMA table_info(sessions)")}:
             self._db.execute("ALTER TABLE sessions ADD COLUMN ended_by TEXT")
         self._migrate_todos()
@@ -275,6 +283,20 @@ class Store:
         self._db.commit()
         return cur.lastrowid
 
+    def set_running_session_group(self, group_id: int | None) -> None:
+        self._db.execute("UPDATE sessions SET group_id = ? WHERE ended_at IS NULL", (group_id,))
+        self._db.commit()
+
+    def add_weekly_review(self, week: date, now: datetime, answer: str | None) -> None:
+        self._db.execute("INSERT OR REPLACE INTO weekly_reviews (week, done_at, answer) VALUES (?, ?, ?)",
+                         (week.isoformat(), now.isoformat(), answer))
+        self._db.commit()
+
+    def last_weekly_review(self) -> tuple[date, str | None] | None:
+        """(week reviewed, answer) of the latest review."""
+        row = self._db.execute("SELECT week, answer FROM weekly_reviews ORDER BY week DESC LIMIT 1").fetchone()
+        return (date.fromisoformat(row[0]), row[1]) if row else None
+
     def running_session(self) -> tuple[int, datetime] | None:
         row = self._db.execute(
             "SELECT id, started_at FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1"
@@ -311,15 +333,15 @@ class Store:
         return {a for (a,) in self._db.execute("SELECT action FROM block_log WHERE day = ?", (day.isoformat(),))}
 
     def sessions_between(self, start: datetime, end: datetime) -> list[tuple]:
-        """(started_at, ended_at or None, pokes, ended_by) for sessions started in [start, end)."""
+        """(started_at, ended_at or None, pokes, ended_by, group_id) for sessions started in [start, end)."""
         rows = self._db.execute(
-            "SELECT started_at, ended_at, pokes, ended_by FROM sessions WHERE started_at >= ? AND started_at < ?"
+            "SELECT started_at, ended_at, pokes, ended_by, group_id FROM sessions WHERE started_at >= ? AND started_at < ?"
             " ORDER BY started_at",
             (start.astimezone(timezone.utc).isoformat(), end.astimezone(timezone.utc).isoformat()),
         ).fetchall()
         return [
-            (datetime.fromisoformat(a), datetime.fromisoformat(b) if b else None, pokes or 0, by)
-            for a, b, pokes, by in rows
+            (datetime.fromisoformat(a), datetime.fromisoformat(b) if b else None, pokes or 0, by, group)
+            for a, b, pokes, by, group in rows
         ]
 
     def add_group(self, name: str, priority: str, now: datetime) -> int:

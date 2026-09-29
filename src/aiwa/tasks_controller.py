@@ -228,6 +228,7 @@ class TasksController:
             if task.offline != offline:
                 self.store.update_task(task.id, offline=int(offline))
             self._set_current(next(t for t in self.store.tasks() if t.id == task.id))
+            self.store.set_running_session_group(task.group_id)  # for the weekly review: time per goal
         elif answer == "done":
             self._set_status(task, "done")
             self.offer_task()

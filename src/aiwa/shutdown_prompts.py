@@ -26,7 +26,11 @@ from aiwa.ui.popup import Popup
 class ShutdownPrompts:
     def __init__(self, store: Store, popup: Popup, tasks: TasksController, params: ShutdownParams,
                  day_starts: time, wrap_up: Callable[[datetime], str], alarm,
+                 weekly_review: Callable[[datetime], str | None] = lambda now: None,
+                 save_review: Callable[[datetime, str | None], None] = lambda now, answer: None,
                  off_params: OffTimeParams = OffTimeParams()):
+        self.weekly_review = weekly_review  # the week's facts when a weekly review is due, else None
+        self.save_review = save_review
         self.store = store
         self.alarm = alarm  # its own player (ui.sound.Alarm), for the wrap-up alarm
         self.off_params = off_params
@@ -37,7 +41,7 @@ class ShutdownPrompts:
         self.day_starts = day_starts
         self.wrap_up = wrap_up  # today's deep work and tomorrow's start, for the last step
         self.snoozed_until: datetime | None = None
-        self.stage: str | None = None  # 'notes', 'mind', 'tomorrow' while the ritual runs
+        self.stage: str | None = None  # 'notes', 'mind', 'week', 'week_question', 'tomorrow' while the ritual runs
         self.notes: list[tuple[int, str, str | None]] = []
         self.mind_asked = False
 
@@ -173,6 +177,18 @@ class ShutdownPrompts:
             self.mind_asked = True
             self.popup.ask_text(message, self._mind_answer, placeholder="something to do…", skip_label="That's all")
             return
+        if self.stage == "week":
+            facts = self.weekly_review(now)
+            if facts is None:
+                self.stage = "tomorrow"
+            else:
+                self.stage = "week_question"
+                self.popup.ask("Weekly review\n\n" + facts, lambda _: None, [("Next", "next")])
+                return
+        if self.stage == "week_question":
+            self.popup.ask_text("Looking at this week: what will you change next week?", self._week_answer,
+                                placeholder="e.g. start the block before checking email", skip_label="Nothing")
+            return
         if self.stage == "tomorrow":
             self.stage = None
             self.popup.ask(self.wrap_up(now), lambda _: self._complete(now), [("Shutdown complete", "done")])
@@ -184,9 +200,13 @@ class ShutdownPrompts:
 
     def _mind_answer(self, text: str | None) -> None:
         if text is None:
-            self.stage = "tomorrow"
+            self.stage = "week"
         else:
             self.tasks.new_task(title=text)  # after the form: "anything else?"
+
+    def _week_answer(self, text: str | None) -> None:
+        self.save_review(datetime.now().astimezone(), text)
+        self.stage = "tomorrow"
 
     def _complete(self, now: datetime) -> None:
         self.store.set_state(self._key(now), "done")

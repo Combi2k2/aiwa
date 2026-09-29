@@ -5,7 +5,7 @@ from __future__ import annotations
 import signal
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
 from platformdirs import user_log_path
 from PySide6.QtCore import QLockFile, QTimer, QUrl
@@ -22,7 +22,7 @@ from aiwa.core.events import Category, Finding, Level, Segment
 from aiwa.core.focus import moment
 from aiwa.core.sampling import SamplingSchedule
 from aiwa.core.scoreboard import ScoreKeeper
-from aiwa.core.scoreboard.day import day_bounds
+from aiwa.core.scoreboard.day import day_bounds, summarize_day
 from aiwa.core.session import Action, BelowThreshold, FocusSession
 from aiwa.core.openjev import Openjev, assess_task, classify_activity, is_todo, suggest_group
 from aiwa.core.quota import QuotaKeeper
@@ -36,6 +36,7 @@ from aiwa.shutdown_prompts import ShutdownPrompts
 from aiwa.core.backlog import minutes_text
 from aiwa.core.consistency import ConsistencyParams, consistency
 from aiwa.core.offline import OfflineWork
+from aiwa.core.weekly import WeekFacts, review_due, review_text, week_start
 from aiwa.morning_prompts import MorningPrompts
 from aiwa.routine_prompts import RoutinePrompts
 from aiwa.rhythm_prompts import RhythmPrompts
@@ -138,7 +139,8 @@ class Aiwa:
         self.capture = CapturePrompts(self.store, self.popup, self.tasks,
                                       (lambda note: is_todo(openjev, note)) if openjev else None)
         self.shutdown = ShutdownPrompts(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
-                                        self.shutdown_wrap_up, alarm=Alarm(config.alarm_sound, config.alarm_volume))
+                                        self.shutdown_wrap_up, alarm=Alarm(config.alarm_sound, config.alarm_volume),
+                                        weekly_review=self.weekly_review, save_review=self.save_weekly_review)
         self.prompts = RhythmPrompts(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
             request_session=lambda: self.tasks.request_session(self.start_session),
@@ -225,6 +227,38 @@ class Aiwa:
             lines.append(f"First up: {task.title} (~{minutes_text(task.estimate)}).")
         lines.append("Everything is written down. The workday is over.")
         return "\n".join(lines)
+
+    def weekly_review(self, now: datetime) -> str | None:
+        """The week's facts, when the weekly review is due (core/weekly.py); else None."""
+        today = self.rhythm.today(now)
+        last = self.store.last_weekly_review()
+        if not review_due(today, last[0] if last else None, self.config.shutdown.days):
+            return None
+        monday = week_start(today)
+        deep_by_day = {}
+        for back in range((today - monday).days + 1):
+            day = monday + timedelta(days=back)
+            _, start, end = day_bounds(datetime.combine(day, time(12)).astimezone(), self.config.day_starts)
+            deep_by_day[day] = summarize_day(day, self.store.minutes(start, end), self.config.focus.deep_threshold, 0).deep_minutes
+        _, week_from, _ = day_bounds(datetime.combine(monday, time(12)).astimezone(), self.config.day_starts)
+        groups = {g.id: g for g in self.store.groups()}
+        minutes: dict[int, int] = {}
+        for session in self.rhythm.sessions(week_from, now, now):
+            if session.group_id in groups:
+                minutes[session.group_id] = minutes.get(session.group_id, 0) + session.deep_minutes
+        worked_on = {t.group_id for t in self.store.tasks() if t.group_id is not None}  # groups with open tasks
+        by_group = sorted(
+            ((g.name, g.priority, minutes.get(g.id, 0)) for g in groups.values() if g.id in minutes or g.id in worked_on),
+            key=lambda row: -row[2],
+        )
+        return review_text(WeekFacts(
+            deep_by_day=deep_by_day, daily_goal=self.quota.base(now), by_group=by_group,
+            chain=self.rhythm.chain(now), consistency=consistency_lines(self.consistency(now))[0],
+            last_answer=last[1] if last else None, workdays=self.config.shutdown.days,
+        ))
+
+    def save_weekly_review(self, now: datetime, answer: str | None) -> None:
+        self.store.add_weekly_review(week_start(self.rhythm.today(now)), now, answer)
 
     def toggle_session(self) -> None:
         if self.session:

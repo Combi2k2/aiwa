@@ -32,9 +32,10 @@ class Rhythm:
     def sessions(self, start: datetime, end: datetime, now: datetime) -> list[SessionSummary]:
         entries = self.store.minutes(start - timedelta(hours=12), end + timedelta(hours=12))
         result = []
-        for started, ended, pokes, ended_by in self.store.sessions_between(start, end):
+        for started, ended, pokes, ended_by, group_id in self.store.sessions_between(start, end):
             result.append(SessionSummary(
-                started, ended, deep_minutes(entries, started, ended or now, self.deep_threshold), pokes, ended_by
+                started, ended, deep_minutes(entries, started, ended or now, self.deep_threshold), pokes, ended_by,
+                group_id,
             ))
         return result
 
