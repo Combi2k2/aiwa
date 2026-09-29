@@ -24,7 +24,7 @@ from aiwa.core.sampling import SamplingSchedule
 from aiwa.core.scoreboard import ScoreKeeper
 from aiwa.core.scoreboard.day import day_bounds
 from aiwa.core.session import Action, BelowThreshold, FocusSession
-from aiwa.core.openjev import Openjev, assess_task, suggest_group
+from aiwa.core.openjev import Openjev, assess_task, classify_activity, suggest_group
 from aiwa.core.quota import QuotaKeeper
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
@@ -131,7 +131,8 @@ class Aiwa:
             request_session=lambda: self.tasks.request_session(self.start_session),
         )
         self.routines = RoutinePrompts(self.store, self.popup, config.bedtime.wind_down, config.day_starts,
-                                       always_ask=config.routines_always_ask)
+                                       always_ask=config.routines_always_ask,
+                                       classify=(lambda text: classify_activity(openjev, text)) if openjev else None)
         self.prompts = RhythmPrompts(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
             request_session=lambda: self.tasks.request_session(self.start_session),

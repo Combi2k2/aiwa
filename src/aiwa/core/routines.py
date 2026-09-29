@@ -2,8 +2,9 @@
 
 An absence runs from the last activity to the next one: away from the keyboard,
 or the laptop asleep / aiwa not running. After it, aiwa asks what it was, at
-random, more often for longer absences. Overnight absences are logged as sleep
-without asking. The answers (and the unasked absences) build up typical times
+random, more often for longer absences; the user types it and openjev sorts it
+into the taxonomy (asking the user only when unsure). Overnight absences are
+logged as sleep without asking. The answers (and the unasked absences) build up typical times
 for meals, sport, etc., which later routine reminders use.
 """
 
@@ -29,7 +30,6 @@ ACTIVITY_CATEGORY = {key: cat for cat, (_, items) in TAXONOMY.items() for key, _
 ACTIVITY_LABEL = {key: label for _, (_, items) in TAXONOMY.items() for key, label in items}
 
 MIN_ABSENCE = timedelta(minutes=5)
-MEAL_HOURS = [(7, 10), (11, 14), (17, 21)]
 
 
 def ask_probability(duration: timedelta) -> float:
@@ -46,20 +46,21 @@ def ask_probability(duration: timedelta) -> float:
     return 0.5  # very long: sleep, a day out, offline work
 
 
-def likely_activities(duration: timedelta, start: datetime, limit: int = 5) -> list[str]:
-    """The activities most likely for an absence this long at this time of day, best first."""
-    minutes = duration.total_seconds() / 60
-    hour = start.astimezone().hour
-    mealtime = any(a <= hour < b for a, b in MEAL_HOURS)
-    if minutes < 20:
-        options = ["toilet", "coffee_snack", "stretching", "phone_call", "relax"]
-    elif minutes < 60:
-        options = (["meal", "cooking"] if mealtime else ["cooking", "meal"]) + ["shower", "workout", "walk", "cleaning", "nap"]
-    elif minutes < 180:
-        options = (["meal"] if mealtime else []) + ["workout", "errands", "family_friends", "nap", "appointment", "meal"]
-    else:
-        options = ["sleep", "travel", "commute", "reading_paper", "family_friends"]
-    return list(dict.fromkeys(options))[:limit]
+CONFIDENT = 0.7  # openjev at least this sure of an activity → take it without asking
+UNSURE_OPTIONS = 3  # openjev unsure → offer its best guesses, this many
+
+
+def confident_activity(guesses: list[tuple[str, float]] | None) -> str | None:
+    """openjev's activity for a typed answer when it's sure enough (and it's in the taxonomy)."""
+    if not guesses:
+        return None
+    key, probability = guesses[0]
+    return key if key != "other" and probability >= CONFIDENT else None
+
+
+def likely_options(guesses: list[tuple[str, float]] | None) -> list[str]:
+    """openjev's best guesses to offer when it's unsure (taxonomy activities only)."""
+    return [key for key, p in (guesses or []) if key != "other" and p > 0][:UNSURE_OPTIONS]
 
 
 @dataclass(frozen=True)

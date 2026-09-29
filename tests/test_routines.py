@@ -1,8 +1,9 @@
 import random
 from datetime import datetime, time, timedelta
 
+from aiwa.core.openjev import classify_activity
 from aiwa.core.routines import (
-    ACTIVITY_CATEGORY, TAXONOMY, Absence, AbsenceTracker, ask_probability, likely_activities, overnight,
+    ACTIVITY_CATEGORY, TAXONOMY, Absence, AbsenceTracker, ask_probability, confident_activity, likely_options, overnight,
 )
 
 T0 = datetime(2026, 9, 30, 12, 0).astimezone()
@@ -25,13 +26,23 @@ def test_ask_probability_by_duration():
     assert ask_probability(timedelta(hours=5)) == 0.5
 
 
-def test_likely_activities_depend_on_duration_and_time_of_day():
-    assert likely_activities(timedelta(minutes=10), T0)[0] == "toilet"
-    assert likely_activities(timedelta(minutes=40), T0)[0] == "meal"  # noon: lunch first
-    afternoon = T0.replace(hour=15)
-    assert likely_activities(timedelta(minutes=40), afternoon)[0] == "cooking"
-    assert len(likely_activities(timedelta(minutes=40), T0)) == 5
-    assert likely_activities(timedelta(hours=6), T0)[0] == "sleep"
+def test_openjev_sure_takes_the_activity_unsure_offers_its_best_guesses():
+    assert confident_activity([("meal", 0.91), ("family_friends", 0.07)]) == "meal"
+    unsure = [("other", 0.64), ("toilet", 0.32), ("coffee_snack", 0.02), ("nap", 0.0)]
+    assert confident_activity(unsure) is None
+    assert likely_options(unsure) == ["toilet", "coffee_snack"]  # not 'other', not impossible ones
+    assert confident_activity([("toilet", 0.5), ("coffee_snack", 0.4)]) is None
+    assert confident_activity(None) is None and likely_options(None) == []
+
+
+def test_classify_activity_reads_openjevs_answer():
+    class FakeOpenjev:
+        def ask(self, state, questions):
+            assert "lunch with Sam" in state and "other" in questions["activity"]["criteria"]
+            return {"activity": {"choice": "meal", "confidence": 0.9,
+                                 "probabilities": {"meal": 0.91, "family_friends": 0.07, "bogus": 0.02}}}
+
+    assert classify_activity(FakeOpenjev(), "lunch with Sam") == [("meal", 0.91), ("family_friends", 0.07)]
 
 
 def test_tracker_reports_an_absence_when_the_user_comes_back():
@@ -75,9 +86,11 @@ def test_absences_round_trip(tmp_path):
 
     store = Store(tmp_path / "db")
     absence_id = store.add_absence(at(0), at(40), None, "unasked")
-    store.set_absence_activity(absence_id, "meal", "user")
+    store.set_absence_activity(absence_id, None, "typed", note="lunch with Sam")
+    store.set_absence_activity(absence_id, "meal", "jev", confidence=0.91)  # the typed text stays
     ((start, end, activity, source),) = store.absences()
-    assert (end - start, activity, source) == (timedelta(minutes=40), "meal", "user")
+    assert (end - start, activity, source) == (timedelta(minutes=40), "meal", "jev")
+    assert store.absence_notes() == [("lunch with Sam", "meal", "jev")]
 
 
 def test_always_ask_for_trying_it_out():

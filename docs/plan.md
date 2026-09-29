@@ -233,3 +233,8 @@ Build order: morning start → routine questions → offline tasks → consisten
 - **Routine answers (update):** the user will *type* what they did, and openjev classifies
   it into the taxonomy; these questions will move into an inbox-style interface later
   (interfaces come after the data work). The current popup with fixed options is interim.
+- **Typed routine answers (built 2026-09-29):** the popup asks "What did you do?" with a
+  text field. openjev picks the activity from the taxonomy (one call, 27 activities +
+  "none of these"). ≥ 0.7 sure → saved. Unsure → "which one was it?" with its top 3
+  guesses, "Something else" and "Don't ask me this" (then openjev's guess is kept, marked
+  unsure). The typed text is always kept. The inbox UI comes later.

@@ -106,7 +106,10 @@ CREATE TABLE IF NOT EXISTS absences (
     start TEXT NOT NULL,            -- last activity before it (UTC)
     end TEXT NOT NULL,              -- first activity after it (UTC)
     activity TEXT,                  -- e.g. 'meal', 'shower' (core/routines.py TAXONOMY); NULL = unknown
-    source TEXT NOT NULL            -- 'user' (answered), 'auto' (overnight → sleep), 'unasked', 'skipped'
+    source TEXT NOT NULL,           -- 'user' (picked), 'jev' (typed, openjev sure), 'jev_unsure' (openjev's guess,
+                                    -- not confirmed), 'typed' (no openjev), 'auto' (overnight → sleep), 'unasked', 'skipped'
+    note TEXT,                      -- what the user typed
+    confidence REAL                 -- openjev's probability for `activity`
 );
 CREATE TABLE IF NOT EXISTS state (
     key TEXT PRIMARY KEY,           -- small values aiwa remembers, e.g. the base quota
@@ -138,6 +141,10 @@ class Store:
         for column, kind in [("confidence", "REAL"), ("confirmed_at", "TEXT")]:
             if column not in columns:  # databases created by older versions
                 self._db.execute(f"ALTER TABLE categories ADD COLUMN {column} {kind}")
+        absence_columns = {row[1] for row in self._db.execute("PRAGMA table_info(absences)")}
+        for column, kind in [("note", "TEXT"), ("confidence", "REAL")]:
+            if column not in absence_columns:
+                self._db.execute(f"ALTER TABLE absences ADD COLUMN {column} {kind}")
         backlog_columns = {row[1] for row in self._db.execute("PRAGMA table_info(backlog)")}
         for column, kind in [("jev_offline", "REAL"), ("offline", "INTEGER")]:
             if column not in backlog_columns:  # databases created by older versions
@@ -383,9 +390,17 @@ class Store:
         self._db.commit()
         return cur.lastrowid
 
-    def set_absence_activity(self, absence_id: int, activity: str | None, source: str) -> None:
-        self._db.execute("UPDATE absences SET activity = ?, source = ? WHERE id = ?", (activity, source, absence_id))
+    def set_absence_activity(self, absence_id: int, activity: str | None, source: str,
+                             note: str | None = None, confidence: float | None = None) -> None:
+        self._db.execute(
+            "UPDATE absences SET activity = ?, source = ?, note = COALESCE(?, note), confidence = ? WHERE id = ?",
+            (activity, source, note, confidence, absence_id),
+        )
         self._db.commit()
+
+    def absence_notes(self) -> list[tuple[str, str | None, str]]:
+        """(typed text, activity, source) of the answered absences."""
+        return self._db.execute("SELECT note, activity, source FROM absences WHERE note IS NOT NULL ORDER BY start").fetchall()
 
     def absences(self) -> list[tuple[datetime, datetime, str | None, str]]:
         rows = self._db.execute("SELECT start, end, activity, source FROM absences ORDER BY start").fetchall()

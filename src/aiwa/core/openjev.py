@@ -121,3 +121,24 @@ def suggest_group(client: Openjev, task: str, groups: list[str]) -> str | None:
         return groups[int(choice[1:])] if choice.startswith("g") and a.get("confidence", 1) >= 0.5 else None
     except (requests.RequestException, KeyError, ValueError, TypeError, IndexError):
         return None
+
+
+def classify_activity(client: Openjev, text: str) -> list[tuple[str, float]] | None:
+    """What the user typed they did while away → (activity key, probability), best first.
+
+    'other' = none of the taxonomy's activities. None if the call fails.
+    """
+    from aiwa.core.routines import ACTIVITY_CATEGORY, ACTIVITY_LABEL, TAXONOMY
+
+    criteria = {key: f"{TAXONOMY[ACTIVITY_CATEGORY[key]][0]}: {label}" for key, label in ACTIVITY_LABEL.items()}
+    criteria["other"] = "None of these"
+    try:
+        a = client.ask(
+            f'While away from the computer, a person did this: "{text}"',
+            {"activity": {"type": "choice", "instructions": "Which activity was it?", "criteria": criteria}},
+        )["activity"]
+        probabilities = {k: float(p) for k, p in a.get("probabilities", {}).items() if k in criteria}
+        probabilities.setdefault(a["choice"], float(a.get("confidence", 0)))
+        return sorted(probabilities.items(), key=lambda kv: -kv[1])
+    except (requests.RequestException, KeyError, ValueError, TypeError):
+        return None
