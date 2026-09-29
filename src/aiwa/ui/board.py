@@ -72,3 +72,10 @@ def consistency_lines(result) -> list[str]:
     if result.usual is None:
         return ["Start time: not enough days yet"]
     return [f"Start time: usually {result.usual:%H:%M} · on time {result.consistent_days} of the last {result.days} days"]
+
+
+def budget_lines(today, limit: float) -> list[str]:
+    """The shallow-work budget (core/budget.py `ShallowShare`)."""
+    if not today.active:
+        return []
+    return [f"Shallow today: {duration(today.shallow)} · {today.share:.0%} (limit {limit:.0%})"]

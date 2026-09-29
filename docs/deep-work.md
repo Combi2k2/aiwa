@@ -88,8 +88,9 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   → morning planning popup with time blocks; compare plan vs. actual, allow re-planning
 - [x] **Measure the depth of each activity**
   → ask the user to rate unknown activities once ("how long to train a graduate to do this?")
-- [ ] **Shallow-work budget**
+- [x] **Shallow-work budget**
   → user sets a percentage; tray warns when shallow time exceeds it
+  *(built 2026-09-29: soft limit 30%, sampled prompts; tray and weekly review)*
 - [ ] **Fixed-schedule productivity**
   → user sets a workday end; shutdown ritual triggers then
 - [ ] **Become hard to reach**

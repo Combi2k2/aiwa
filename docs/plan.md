@@ -303,3 +303,14 @@ Build order: morning start → routine questions → offline tasks → consisten
   and the alarm stops.
 - Deep minutes (scoreboard, quota, shutdown's focus weight) use a **5-minute** window
   (was 10). Horizons: 2 / 5 / 30 min.
+
+## Decisions 2026-09-29: shallow-work budget, and soft thresholds in general
+- **Philosophy (the user's):** every limit is a threshold, but the user is relaxed
+  around it: measure how far over it they are, and *sample* whether to prompt, more
+  likely the further over. No hard trigger at the line.
+- Shallow budget: shallow minutes ÷ active minutes today, limit 30% (`[shallow] limit`).
+  Checked every 30 min on workdays, outside sessions, before the shutdown, after 1 h at
+  the computer. Chance per check = 1 − e^(−overshoot / 0.15): +5 pts 28%, +10 49%,
+  +20 74%. Prompt: "Batch the rest for later and get back to deep work?" → Start a focus
+  session / Not now.
+- Tray: "Shallow today: 1h 40m · 28% (limit 30%)". Weekly review: the week's share.

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
 from aiwa.ui.icon import scope_icon
 
-SCOREBOARD_LINES = 12  # the day's numbers, block, chain, sessions, start time, tasks, sleep
+SCOREBOARD_LINES = 13  # the day's numbers, shallow budget, block, chain, sessions, start time, tasks, sleep
 
 
 class Tray:

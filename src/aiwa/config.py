@@ -13,6 +13,7 @@ from platformdirs import user_config_path, user_data_path
 
 from aiwa.core.ai import AISettings
 from aiwa.core.bedtime import BedtimeParams
+from aiwa.core.budget import BudgetParams
 from aiwa.core.events import Category
 from aiwa.core.focus.params import FocusParams
 from aiwa.core.quota import QuotaParams
@@ -88,6 +89,12 @@ always_ask = false   # true: ask about every absence of 5+ minutes (for trying i
 enabled = true
 time = "18:00"
 days = ["mon", "tue", "wed", "thu", "fri"]
+
+[shallow]
+# The shallow-work budget: the share of your time at the computer that may go to shallow
+# work (email, chat, admin) on workdays. A soft limit: the further over it you are, the
+# more likely aiwa mentions it (checked every 30 minutes, outside sessions).
+limit = 0.30
 
 [bedtime]
 # An anchor for sleep, every night: from wind_down a reminder every 5 minutes while you're
@@ -214,6 +221,7 @@ class Config:
     rhythm: RhythmParams = field(default_factory=RhythmParams)
     bedtime: BedtimeParams = field(default_factory=BedtimeParams)
     shutdown: ShutdownParams = field(default_factory=ShutdownParams)
+    shallow: BudgetParams = field(default_factory=BudgetParams)
     routines_always_ask: bool = False
     ai_enabled: bool = True
     ai: AISettings = field(default_factory=AISettings)
@@ -281,6 +289,7 @@ def parse(raw: dict) -> Config:
         rhythm=parse_rhythm(raw.get("rhythm", {})),
         bedtime=parse_bedtime(raw.get("bedtime", {})),
         shutdown=parse_shutdown(raw.get("shutdown", {})),
+        shallow=BudgetParams(limit=raw.get("shallow", {}).get("limit", BudgetParams().limit)),
         routines_always_ask=raw.get("routines", {}).get("always_ask", False),
         ai_enabled=raw.get("ai", {}).get("enabled", True),
         ai=AISettings(

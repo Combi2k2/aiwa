@@ -41,6 +41,8 @@ class WeekFacts:
     chain: int
     consistency: str  # the tray's start-time line
     last_answer: str | None = None  # last review's "what will you change?"
+    shallow: tuple[int, int] | None = None  # (shallow minutes, active minutes) on this week's workdays
+    shallow_limit: float = 0.30
     workdays: tuple[str, ...] = field(default=("mon", "tue", "wed", "thu", "fri"))
 
 
@@ -58,6 +60,9 @@ def review_text(f: WeekFacts) -> str:
         neglected = [name for name, priority, m in f.by_group if priority == "high" and m == 0]
         if neglected:
             lines.append(f"No deep work on high-priority {', '.join(neglected)} this week.")
+    if f.shallow and f.shallow[1]:
+        share = f.shallow[0] / f.shallow[1]
+        lines.append(f"Shallow work: {share:.0%} of your time at the computer on workdays (limit {f.shallow_limit:.0%}).")
     lines.append(f"Chain: {f.chain} day{'s' if f.chain != 1 else ''} in a row. {f.consistency}")
     if f.last_answer:
         lines.append(f"Last week you said you'd change: “{f.last_answer}”")

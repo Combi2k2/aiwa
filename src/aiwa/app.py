@@ -34,15 +34,17 @@ from aiwa.bedtime_prompts import BedtimePrompts
 from aiwa.capture_prompts import CapturePrompts
 from aiwa.shutdown_prompts import ShutdownPrompts
 from aiwa.core.backlog import minutes_text
+from aiwa.core.budget import ShallowBudget, shallow_share
 from aiwa.core.consistency import ConsistencyParams, consistency
 from aiwa.core.offline import OfflineWork
+from aiwa.core.shutdown import workday
 from aiwa.core.weekly import WeekFacts, review_due, review_text, week_start
 from aiwa.morning_prompts import MorningPrompts
 from aiwa.routine_prompts import RoutinePrompts
 from aiwa.rhythm_prompts import RhythmPrompts
 from aiwa.tasks_controller import TasksController
 from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, server_check
-from aiwa.ui.board import consistency_lines, rhythm_lines, scoreboard_lines, sleep_lines, task_lines
+from aiwa.ui.board import budget_lines, consistency_lines, rhythm_lines, scoreboard_lines, sleep_lines, task_lines
 from aiwa.ui.popup import Popup
 from aiwa.ui.sound import Alarm
 from aiwa.ui.tray import Tray
@@ -93,6 +95,7 @@ class Aiwa:
         )
         self.quota = QuotaKeeper(self.store, config.quota, config.day_starts, config.focus.deep_threshold)
         self.low_focus = LowAndNotRising(config.low_focus_below)
+        self.budget = ShallowBudget(config.shallow)
         self.alarm = Alarm(config.alarm_sound, config.alarm_volume)
         self.session: FocusSession | None = None
         self.session_id: int | None = None
@@ -235,11 +238,15 @@ class Aiwa:
         if not review_due(today, last[0] if last else None, self.config.shutdown.days):
             return None
         monday = week_start(today)
-        deep_by_day = {}
+        deep_by_day, shallow, active = {}, 0, 0
         for back in range((today - monday).days + 1):
             day = monday + timedelta(days=back)
             _, start, end = day_bounds(datetime.combine(day, time(12)).astimezone(), self.config.day_starts)
-            deep_by_day[day] = summarize_day(day, self.store.minutes(start, end), self.config.focus.deep_threshold, 0).deep_minutes
+            summary = summarize_day(day, self.store.minutes(start, end), self.config.focus.deep_threshold, 0)
+            deep_by_day[day] = summary.deep_minutes
+            if workday(day, self.config.shutdown):
+                share = shallow_share(summary.minutes_by_activity)
+                shallow, active = shallow + share.shallow, active + share.active
         _, week_from, _ = day_bounds(datetime.combine(monday, time(12)).astimezone(), self.config.day_starts)
         groups = {g.id: g for g in self.store.groups()}
         minutes: dict[int, int] = {}
@@ -255,6 +262,7 @@ class Aiwa:
             deep_by_day=deep_by_day, daily_goal=self.quota.base(now), by_group=by_group,
             chain=self.rhythm.chain(now), consistency=consistency_lines(self.consistency(now))[0],
             last_answer=last[1] if last else None, workdays=self.config.shutdown.days,
+            shallow=(shallow, active), shallow_limit=self.config.shallow.limit,
         ))
 
     def save_weekly_review(self, now: datetime, answer: str | None) -> None:
@@ -374,14 +382,30 @@ class Aiwa:
         today = self.scores.today(now, self.quota.today(now, deep))
         _, day_start, day_end = day_bounds(now, self.config.day_starts)
         group, task = self.tasks.next_task(now)
+        shallow = shallow_share(today.minutes_by_activity)
         lines = (
             scoreboard_lines(today, self.config.focus.deep_threshold)
+            + budget_lines(shallow, self.config.shallow.limit)
             + rhythm_lines(self.prompts.todays_block(now), now, self.rhythm.chain(now), self.rhythm.todays_sessions(now))
             + consistency_lines(self.consistency(now))
             + task_lines(group, task, self.store.tasks_done_between(day_start, day_end))
             + sleep_lines(*self.bedtime.last_night(now))
         )
         self.tray.set_scoreboard(lines, today.goal_progress)
+        self.check_budget(now, shallow)
+
+    def check_budget(self, now: datetime, today) -> None:
+        """The shallow-work budget: sometimes mention it, more likely the further over (core/budget.py)."""
+        day = self.rhythm.today(now)
+        if (self.session is not None or self.popup.isVisible() or not workday(day, self.config.shutdown)
+                or self.shutdown.done_today(now) or not self.budget.should_prompt(now, today)):
+            return
+        self.popup.ask(
+            f"Shallow work is at {today.share:.0%} of your time at the computer today (your limit: "
+            f"{self.config.shallow.limit:.0%}). Batch the rest for later and get back to deep work?",
+            lambda a: self.tasks.request_session(self.start_session) if a == "session" else None,
+            [("Start a focus session", "session"), ("Not now", "no")],
+        )
 
     def consistency(self, now: datetime):
         params = ConsistencyParams()
