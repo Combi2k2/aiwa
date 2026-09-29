@@ -285,3 +285,13 @@ Build order: morning start → routine questions → offline tasks → consisten
   "Shutdown complete".
 - Once started, capture questions stop for the rest of the day, and the 21:30 "anything
   new?" is skipped (it's still asked on non-workdays).
+
+## Decisions 2026-09-29: weekly review (4DX #4)
+- Part of the shutdown ritual of the week's last workday (Friday), after the wrap-up;
+  missed → at the next shutdown. Outside sessions like everything else.
+- Shows: deep work this week and per day, the daily goal reached on N of M workdays,
+  deep minutes per goal group (with priority; high-priority groups with none are
+  called out), the chain, start-time consistency, last week's answer.
+- Then: "Looking at this week: what will you change next week?" (typed; kept and
+  shown at the next review).
+- Sessions now record their goal group (the group of the last task started in them).

@@ -45,8 +45,11 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   → track deep hours per goal (a lead measure), not outcomes
 - [x] **4DX 3: Keep a compelling scoreboard**
   → tray shows today's deep hours; simple daily/weekly chart
-- [ ] **4DX 4: Cadence of accountability**
+- [x] **4DX 4: Cadence of accountability**
   → weekly review popup: deep hours vs. goal, what helped, what got in the way
+  *(built 2026-09-29: in the last workday's shutdown ritual; deep work per day vs. the
+  daily goal, per goal group with its priority, chain, consistency, last week's answer;
+  "what will you change next week?")*
 - [ ] **Be lazy (real downtime)**
   → after the workday ends, stop work nudges; flag work apps opened late in the evening
 - [x] **Shutdown ritual**
