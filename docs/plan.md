@@ -193,3 +193,24 @@ by hand before the AI planner exists, or wait for it?
   one group, chosen by urgency (deadlines) and importance, so the user doesn't switch
   between goals within a session.
 - The planning chat built earlier today is superseded by this.
+
+
+## Decisions 2026-09-29: mornings, consistency, routines, offline work
+- **No automatic shift of deep work to the morning.** Instead: **consistency** — sessions
+  should start at a similar time every day; the tray shows how consistent they were.
+- **Morning start:** when the user first picks up the laptop, show today's work, then
+  suggest the morning routine: ask how long it takes; deadline = that time + buffer
+  clamp(20% of it, 5, 20) min. Not back at the computer by then → alarm until back →
+  suggest the first session. "Heading out today" skips it (day shifts, travel; calendar
+  integration will later give the leaving time / movement time).
+- **Routine learning:** after an absence, ask "what was that?" at random, more likely for
+  longer absences (<5 min never; 5–20 min ~20%; 20–60 ~60%; 1–3 h ~80%; >3 h ~50%).
+  Taxonomy: body care, food, movement, rest, chores, people, out, offline work, leisure
+  (two levels; the popup offers the likely options for the duration and time of day).
+  Answers build typical times per routine for later routine prompts.
+- **Offline work** counts as deep work only in a session, on a task marked offline
+  (openjev suggests, the user confirms): being away is then the work (no away alarm or
+  auto-end). Other absences answered "offline work" are only categorized, and may prompt
+  a session next time.
+
+Build order: morning start → routine questions → offline tasks → consistency line.
