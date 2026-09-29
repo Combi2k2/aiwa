@@ -201,8 +201,8 @@ by hand before the AI planner exists, or wait for it?
 - **Morning start:** when the user first picks up the laptop, show today's work, then
   suggest the morning routine: ask how long it takes; deadline = that time + buffer
   clamp(20% of it, 5, 20) min. Back early (after stepping away) → "finished your routine?":
-  finished → "start working?" (yes → session; no → wait for the deadline); "10 more
-  minutes" once. Deadline without a session → alarm until a session starts. "Heading out today" skips it (day shifts, travel; calendar
+  finished → "start working?" (yes → session; no → wait for the deadline); "not yet"
+  → back to the routine, deadline +1 min. Deadline without a session → alarm until a session starts. "Heading out today" skips it (day shifts, travel; calendar
   integration will later give the leaving time / movement time).
 - **Routine learning:** after an absence, ask "what was that?" at random, more likely for
   longer absences (<5 min never; 5–20 min ~20%; 20–60 ~60%; 1–3 h ~80%; >3 h ~50%).

@@ -5,7 +5,7 @@
 2. The routine gets that time plus a buffer: clamp(20% of it, 5, 20) minutes.
 3. Back at the computer early (after having stepped away) → "Finished your routine?"
    - finished → "start working?": yes → session; no → wait for the deadline
-   - "10 more minutes" (once) → back to the routine, deadline extended
+   - "not yet" → back to the routine, the deadline 1 minute later
 4. Deadline reached without a session → the alarm rings until a session starts
    (or the user is heading out).
 Starting a session at any point ends the morning.
@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 
 LEFT_AFTER = timedelta(minutes=3)  # away at least this long during the routine = actually went to do it
-EXTENSION = timedelta(minutes=10)  # "10 more minutes", once
+EXTENSION = timedelta(minutes=1)  # "not yet": back to the routine, a little more time
 
 
 def buffer_for(routine: timedelta) -> timedelta:
@@ -40,7 +40,7 @@ class State(Enum):
 class Action(Enum):
     NONE = "none"
     GREET = "greet"  # first activity: show today's work, ask about the routine
-    CHECK = "check"  # back early: finished, or 10 more minutes?
+    CHECK = "check"  # back early: finished, or not yet?
     ALARM = "alarm"  # deadline passed without a session
     SILENCE = "silence"  # a session started: stop the alarm
 
@@ -51,7 +51,6 @@ class MorningFlow:
     deadline: datetime | None = None
     away_since: datetime | None = None
     left: bool = False  # stepped away long enough during the routine
-    extended: bool = False  # "10 more minutes" already used
 
     def step(self, now: datetime, active: bool, in_session: bool = False) -> Action:
         if self.state is State.DONE:
@@ -87,14 +86,10 @@ class MorningFlow:
         self.away_since, self.left = None, False
         return self.deadline
 
-    def more_time(self) -> bool:
-        """"10 more minutes": once. Returns whether it was granted."""
-        if self.extended:
-            return False
-        self.extended = True
+    def not_yet(self) -> None:
+        """Back to the routine, with the deadline a little later."""
         self.deadline += EXTENSION
         self.state, self.left, self.away_since = State.ROUTINE, False, None
-        return True
 
     def finished_not_working(self) -> None:
         """Routine done, but not ready to work: wait for the deadline (then the alarm)."""

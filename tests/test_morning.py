@@ -46,15 +46,18 @@ def test_a_quick_glance_at_the_laptop_is_not_coming_back():
     assert m.step(at(2), active=True) is Action.NONE  # away only a minute: still in the routine
 
 
-def test_ten_more_minutes_once():
+def test_not_yet_goes_back_to_the_routine_with_one_more_minute_each_time():
     m = routine()  # deadline 7:36
     away(m, 1, 20)
     m.step(at(21), True)
-    assert m.more_time()
-    assert m.deadline == at(46)
-    assert away(m, 22, 45) == []
-    assert m.step(at(46), False) is Action.ALARM
-    assert not m.more_time()
+    m.not_yet()
+    assert m.deadline == at(37) and m.state is State.ROUTINE
+    away(m, 22, 30)
+    assert m.step(at(31), True) is Action.CHECK  # back early again: asked again
+    m.not_yet()
+    assert m.deadline == at(38)
+    assert away(m, 32, 37) == []
+    assert m.step(at(38), False) is Action.ALARM
 
 
 def test_finished_but_not_working_waits_for_the_deadline_then_rings():

@@ -53,10 +53,8 @@ class MorningPrompts:
                 self._routine_answer, ROUTINE_OPTIONS,
             )
         elif action is Action.CHECK:
-            options = [("Finished", "finished")]
-            if not self.flow.extended:
-                options.append(("10 more minutes", "more"))
-            self.popup.ask("Finished your morning routine?", self._check_answer, options)
+            self.popup.ask("Finished your morning routine?", self._check_answer,
+                           [("Finished", "finished"), ("Not yet", "not_yet")])
         elif action is Action.ALARM:
             self.alarm.start()
             self.popup.ask(
@@ -77,8 +75,8 @@ class MorningPrompts:
             self.flow.start_routine(now, int(answer))
 
     def _check_answer(self, answer: str) -> None:
-        if answer == "more":
-            self.flow.more_time()
+        if answer == "not_yet":
+            self.flow.not_yet()
             return
         self.popup.ask("Ready to start working?", self._ready_answer, [("Yes, start a session", "yes"), ("Not yet", "no")])
 

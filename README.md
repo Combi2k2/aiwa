@@ -47,8 +47,8 @@ The goal is a **daily deep-work quota** (4 h to start, up to 10 h): the scope's 
 fills toward it, and aiwa shows what you did, never what's left.
 
 **A morning start**: when you first pick up the laptop, aiwa shows today's work and asks
-how long your morning routine takes. Back early? It asks whether you're finished (or
-want 10 more minutes). When the routine time (plus a small buffer) is over without a
+how long your morning routine takes. Back early? It asks whether you're finished ("not yet"
+sends you back with a minute more). When the routine time (plus a small buffer) is over without a
 session, the alarm rings until you start one. "Heading out today" skips it.
 
 **An evening wind-down**, every night: from 22:00 a reminder every 5 minutes while you're
