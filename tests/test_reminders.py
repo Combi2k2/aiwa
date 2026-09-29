@@ -48,7 +48,19 @@ def test_reminders_are_sampled_every_15_minutes_and_settled_for_the_day():
     reminders = RoutineReminders(rng=random.Random(1))
     assert reminders.step(at(0, 11), slots, [], DAY_STARTS) is None  # before any past lunch
     assert reminders.step(at(0, 11, 5), slots, [], DAY_STARTS) is None  # 5 min later: not checked again yet
-    slot = reminders.step(at(0, 13, 30), slots, [], DAY_STARTS)  # past every past lunch: certain
+    slot = None
+    for minutes in range(0, 120, 15):  # after every past lunch had started: 92% per check
+        slot = slot or reminders.step(at(0, 13, 30) + timedelta(minutes=minutes), slots, [], DAY_STARTS)
     assert slot.peak == time(12, 30)
     reminders.settle(slot, at(0, 13, 30), DAY_STARTS)
     assert reminders.step(at(0, 14, 0), slots, [], DAY_STARTS) is None
+
+
+def test_reminder_chance_is_soft_around_half_the_days():
+    from aiwa.core.reminders import ReminderRule, SlotNow
+
+    lunch = routine_slots(history(), DAY_STARTS)[0]
+    rule = ReminderRule()
+    chance = lambda h, m=0: round(rule.chance(SlotNow(lunch, at(0, h, m), DAY_STARTS)), 2)
+    assert chance(11) == 0  # before any past lunch
+    assert chance(12, 30) == 0.62 and chance(13, 30) == 0.92

@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timedelta
 
 from aiwa.core.offtime import OffTimeParams, near, off_time, often_missed
-from aiwa.core.shutdown import ShutdownParams, lowness, shift_ending, time_weight, workday
+from aiwa.core.shutdown import LowFocusRule, ShiftContext, ShutdownParams, TimeRule, shift_ending, workday
 
 TUESDAY, SATURDAY = date(2026, 9, 29), date(2026, 10, 3)
 P = ShutdownParams()
@@ -11,34 +11,37 @@ def local(day: date, hour: int, minute: int = 0) -> datetime:
     return datetime.combine(day, time(hour, minute)).astimezone()
 
 
-def test_time_weight_is_an_s_curve_around_the_shutdown_time():
-    six = local(TUESDAY, 18)
-    weight = lambda h, m=0: round(time_weight(local(TUESDAY, h, m), six, P.spread), 2)
+def ctx(day, hour, minute=0, intensity=None):
+    return ShiftContext(local(day, hour, minute), day, time(4), intensity)
+
+
+def test_time_rule_is_an_s_curve_around_the_shutdown_time():
+    rule = TimeRule(P)
+    weight = lambda h, m=0: round(rule.chance(ctx(TUESDAY, h, m)), 2)
     assert weight(16) == 0.01 and weight(17) == 0.1 and weight(17, 30) == 0.25
     assert weight(18) == 0.5 and weight(18, 30) == 0.75 and weight(19) == 0.9
+    assert weight(14, 59) == 0  # before its range
 
 
-def test_lowness():
-    assert lowness(None, 0.6) == 1.0
-    assert lowness(0.6, 0.6) == 0.0 and lowness(0.8, 0.6) == 0.0
-    assert lowness(0.3, 0.6) == 0.5
+def test_low_focus_rule():
+    rule = LowFocusRule(P)
+    chance = lambda i: round(rule.chance(ctx(TUESDAY, 18, intensity=i)), 2)
+    assert chance(None) > 0.98 and chance(0.3) == 0.5 and chance(0.15) == 0.89
+    assert chance(0.6) == 0 and chance(0.8) == 0  # focused: never
 
 
-def test_offered_when_focus_is_low_around_the_shutdown_time_never_while_focused():
-    def ending(hour, minute, intensity):
-        return shift_ending(local(TUESDAY, hour, minute), TUESDAY, time(4), P, intensity) >= P.offer_at
-
-    assert not ending(16, 0, None) and not ending(17, 30, None)  # idle, but too early
-    assert ending(18, 0, None)
-    assert ending(18, 30, 0.1)  # reading email
-    assert not ending(18, 30, 0.3)
-    assert ending(19, 0, 0.2)
-    assert not ending(20, 0, 0.7)  # focused: never interrupt that
+def test_offer_chance_combines_both():
+    rule = shift_ending(P)
+    chance = lambda h, m, i: rule.chance(ctx(TUESDAY, h, m, i))
+    assert chance(16, 0, None) < 0.02
+    assert 0.45 < chance(18, 0, None) < 0.5
+    assert chance(18, 30, 0.1) > 0.7  # reading email after 18:00
+    assert chance(20, 0, 0.7) == 0  # focused: never
 
 
 def test_workdays_only_by_default():
     assert workday(TUESDAY, P) and not workday(SATURDAY, P)
-    assert shift_ending(local(SATURDAY, 19), SATURDAY, time(4), P, None) == 0
+    assert shift_ending(P).chance(ctx(SATURDAY, 19)) == 0
     assert not workday(TUESDAY, ShutdownParams(enabled=False))
 
 

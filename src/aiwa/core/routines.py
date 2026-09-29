@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+
+from aiwa.core.rule import Rule, RuleParams
 from datetime import datetime, time, timedelta
 
 # two levels: category → activities (key, label)
@@ -32,18 +34,35 @@ ACTIVITY_LABEL = {key: label for _, (_, items) in TAXONOMY.items() for key, labe
 MIN_ABSENCE = timedelta(minutes=5)
 
 
+@dataclass(frozen=True)
+class Absence:
+    start: datetime  # last activity before it
+    end: datetime  # first activity after it
+
+    @property
+    def duration(self) -> timedelta:
+        return self.end - self.start
+
+
+class AskRule(Rule[Absence]):
+    """Whether to ask about an absence (core/rule.py): the quantity is its length in
+    minutes; threshold 5 min; the chances are the user's exact numbers (steps):
+    5–20 min 20% (toilet, coffee: mostly not worth asking), 20–60 min 60%,
+    1–3 h 80%, over 3 h 50% (sleep, a day out, offline work)."""
+
+    params = RuleParams(threshold=5, range=(5, None), steps=((5, 0.2), (20, 0.6), (60, 0.8), (180, 0.5)))
+
+    def __init__(self, always: bool = False, rng: random.Random | None = None):
+        # always (for trying it out): every absence from 5 minutes on
+        super().__init__(RuleParams(threshold=5) if always else None, rng)
+
+    def measure(self, absence: Absence) -> float:
+        return absence.duration.total_seconds() / 60
+
+
 def ask_probability(duration: timedelta) -> float:
     """How likely aiwa asks about an absence of this length."""
-    minutes = duration.total_seconds() / 60
-    if minutes < 5:
-        return 0.0
-    if minutes < 20:
-        return 0.2  # toilet, coffee: mostly not worth asking
-    if minutes < 60:
-        return 0.6
-    if minutes < 180:
-        return 0.8
-    return 0.5  # very long: sleep, a day out, offline work
+    return AskRule().chance(Absence(datetime.min, datetime.min + duration))
 
 
 CONFIDENT = 0.7  # openjev at least this sure of an activity → take it without asking
@@ -63,16 +82,6 @@ def likely_options(guesses: list[tuple[str, float]] | None) -> list[str]:
     return [key for key, p in (guesses or []) if key != "other" and p > 0][:UNSURE_OPTIONS]
 
 
-@dataclass(frozen=True)
-class Absence:
-    start: datetime  # last activity before it
-    end: datetime  # first activity after it
-
-    @property
-    def duration(self) -> timedelta:
-        return self.end - self.start
-
-
 def overnight(absence: Absence, bedtime: time, day_starts: time) -> bool:
     """Whether the absence covers part of the night (bedtime until the day starts): that's sleep."""
     t = absence.start.astimezone()
@@ -88,10 +97,9 @@ class AbsenceTracker:
     """Turns "is the user active now?" (checked every few seconds) into finished absences."""
 
     def __init__(self, rng: random.Random | None = None, always_ask: bool = False):
+        self.rule = AskRule(always_ask, rng)
         self.last_active: datetime | None = None
         self.returned_at: datetime | None = None  # end of the last absence
-        self.rng = rng or random.Random()
-        self.always_ask = always_ask  # for trying it out: ask about every absence of 5+ minutes
 
     def step(self, now: datetime, active: bool, away_since: datetime | None = None) -> Absence | None:
         """Call regularly; returns an absence when the user comes back from one.
@@ -115,6 +123,4 @@ class AbsenceTracker:
         return None
 
     def should_ask(self, absence: Absence) -> bool:
-        if self.always_ask:
-            return absence.duration >= MIN_ABSENCE
-        return self.rng.random() < ask_probability(absence.duration)
+        return self.rule.decide(absence)

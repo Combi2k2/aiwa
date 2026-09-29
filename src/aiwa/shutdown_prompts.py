@@ -17,7 +17,8 @@ from typing import Callable
 
 from aiwa.core.offtime import OffTimeParams, near, off_time, often_missed
 from aiwa.core.scoreboard.day import day_bounds
-from aiwa.core.shutdown import ShutdownParams, shift_ending, workday
+from aiwa.core.rule import Cadence
+from aiwa.core.shutdown import ShiftContext, ShutdownParams, shift_ending, workday
 from aiwa.core.store import Store
 from aiwa.tasks_controller import TasksController
 from aiwa.ui.popup import Popup
@@ -33,6 +34,8 @@ class ShutdownPrompts:
         self.save_review = save_review
         self.store = store
         self.alarm = alarm  # its own player (ui.sound.Alarm), for the wrap-up alarm
+        self.shift_ending = shift_ending(params)
+        self.cadence = Cadence(params.check_every)
         self.off_params = off_params
         self._stats: tuple[datetime, time | None, list[bool]] | None = None  # (computed at, off time, done by day)
         self.popup = popup
@@ -73,7 +76,8 @@ class ShutdownPrompts:
             return
         if self.snoozed_until and now < self.snoozed_until:
             return
-        if shift_ending(now, day, self.day_starts, self.params, intensity) >= self.params.offer_at:
+        context = ShiftContext(now, day, self.day_starts, intensity)
+        if self.shift_ending.chance(context) > 0 and self.cadence.due(now) and self.shift_ending.decide(context):
             self.offer(now)
             return
         self._maybe_offer_alarm(now)

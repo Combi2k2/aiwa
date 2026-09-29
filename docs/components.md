@@ -58,6 +58,7 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/offtime.py` | The usual off time (peak of the starts of 3+ h absences); near it?; wrap-ups often missed? | absence starts → time | `OffTimeParams` | `test_shutdown.py` |
 | `shutdown_prompts.py` | Offers the ritual (shift ending, session ended near the off time, the wrap-up alarm), offers the alarm when often missed; runs the steps one at a time; "done today" stops capture | — | — | manual |
 | `core/weekly.py` | The weekly review: when it's due (last workday, or after a missed one) and its text | week's deep minutes, goal groups, chain, consistency → text | — | `test_weekly.py` |
+| `core/rule.py` | The rule abstraction: quantity vs. soft threshold (threshold, softness, direction, range, steps) → chance → sampled decision; `AllOf`, `Cadence` | context → chance / fire? | per rule | `test_rule.py` |
 | `core/budget.py` | Shallow-work budget: shallow share of active time; soft threshold, prompt sampled with a chance rising with the overshoot | minutes by activity → share; share → prompt? | `[shallow]`, `BudgetParams` | `test_budget.py` |
 | `core/meditation.py` | Productive meditation: when to suggest a thinking walk; the walk as an offline task | session deep minutes → suggest?; problem, minutes → `Task` | `MeditationParams` | `test_meditation.py` |
 | `meditation_prompts.py` | The walk popups: suggestion, problem, length, "what did you figure out?" (a note) | — | — | manual |

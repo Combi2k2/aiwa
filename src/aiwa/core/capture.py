@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from aiwa.core.events import Category, Segment
+from aiwa.core.rule import Rule, RuleParams
 
 
 @dataclass(frozen=True)
@@ -45,11 +46,24 @@ class Source:
         return segment.app == self.app and segment.title == self.title
 
 
+class TimeOnIt(Rule[timedelta]):
+    """Time spent on something, in seconds, against a threshold (core/rule.py)."""
+
+    def measure(self, spent: timedelta) -> float:
+        return spent.total_seconds()
+
+
 class CaptureWatch:
-    """Decides when to ask "anything worth noting?" (outside sessions)."""
+    """Decides when to ask "anything worth noting?" (outside sessions).
+
+    Two hard rules (the user's exact lines): 15 s on a shallow visit; 5 min in a
+    distraction stretch. Each asks once per visit / stretch.
+    """
 
     def __init__(self, params: CaptureParams = CaptureParams()):
         self.params = params
+        self.shallow_rule = TimeOnIt(RuleParams(threshold=params.shallow_after.total_seconds()))
+        self.distraction_rule = TimeOnIt(RuleParams(threshold=params.distraction_after.total_seconds()))
         self.visit_key: str | None = None  # the shallow visit: one app/site in focus without a switch
         self.visit_since: datetime | None = None
         self.visit_asked = False
@@ -71,13 +85,13 @@ class CaptureWatch:
             if self.stretch_since is None:
                 self.stretch_since, self.stretch_asked = now, False
             self.last_distraction = now
-            if not self.stretch_asked and now - self.stretch_since >= self.params.distraction_after:
+            if not self.stretch_asked and self.distraction_rule.decide(now - self.stretch_since):
                 self.stretch_asked = True
                 return Source.of(segment, category)
         elif self.last_distraction is not None and now - self.last_distraction >= self.params.distraction_gap:
             self.stretch_since = None
 
-        if category is Category.SHALLOW and not self.visit_asked and now - self.visit_since >= self.params.shallow_after:
+        if category is Category.SHALLOW and not self.visit_asked and self.shallow_rule.decide(now - self.visit_since):
             self.visit_asked = True
             return Source.of(segment, category)
         return None

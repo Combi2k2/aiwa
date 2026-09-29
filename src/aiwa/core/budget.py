@@ -1,26 +1,28 @@
 """The shallow-work budget (Deep Work, rule 4): how much of the day goes to shallow work.
 
-Like every limit in aiwa it's a soft threshold: nothing happens at the line.
-aiwa measures how far over it the user is and, every so often, samples whether
-to say something; the further over, the more likely.
+A rule (core/rule.py): the quantity is the shallow share of today's time at the
+computer; the threshold is the limit (50% chance of a prompt there), soft around
+it. Active only after an hour at the computer (too early to judge before). The
+chance is per check, checked every 30 minutes.
 """
 
 from __future__ import annotations
 
-import math
 import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+
+from aiwa.core.rule import Cadence, Rule, RuleParams
 
 AWAY = {"away"}
 
 
 @dataclass(frozen=True)
 class BudgetParams:
-    limit: float = 0.30  # share of active time that may go to shallow work
-    scale: float = 0.15  # chance of a prompt per check = 1 − e^(−overshoot / scale): +5 pts 28%, +10 49%, +20 74%
+    limit: float = 0.30  # the threshold: share of active time for shallow work (50% chance per check there)
+    softness: float = 0.05  # 25% → 27%, 35% → 73%, 40% → 88% per check
     check_every: timedelta = timedelta(minutes=30)
-    min_active: timedelta = timedelta(hours=1)  # too early in the day to judge before this
+    min_active: timedelta = timedelta(hours=1)  # the rule's range: not before this much time at the computer
 
 
 @dataclass(frozen=True)
@@ -38,23 +40,26 @@ def shallow_share(minutes_by_activity: dict[str, int]) -> ShallowShare:
     return ShallowShare(minutes_by_activity.get("shallow", 0), active)
 
 
-def prompt_probability(share: float, params: BudgetParams) -> float:
-    overshoot = share - params.limit
-    return 0.0 if overshoot <= 0 else 1 - math.exp(-overshoot / params.scale)
+class BudgetRule(Rule[ShallowShare]):
+    def __init__(self, params: BudgetParams = BudgetParams(), rng: random.Random | None = None):
+        super().__init__(RuleParams(threshold=params.limit, softness=params.softness), rng)
+        self.min_active = params.min_active.total_seconds() / 60
+
+    def measure(self, today: ShallowShare) -> float:
+        return today.share
+
+    def active(self, today: ShallowShare) -> bool:
+        return today.active >= self.min_active
 
 
 class ShallowBudget:
     """Every `check_every`, samples whether to mention the budget."""
 
     def __init__(self, params: BudgetParams = BudgetParams(), rng: random.Random | None = None):
-        self.params = params
-        self.rng = rng or random.Random()
-        self.last_check: datetime | None = None
+        self.rule = BudgetRule(params, rng)
+        self.cadence = Cadence(params.check_every)
 
     def should_prompt(self, now: datetime, today: ShallowShare) -> bool:
-        if today.active < self.params.min_active.total_seconds() / 60:
+        if not self.rule.active(today) or not self.cadence.due(now):
             return False
-        if self.last_check is not None and now - self.last_check < self.params.check_every:
-            return False
-        self.last_check = now
-        return self.rng.random() < prompt_probability(today.share, self.params)
+        return self.rule.decide(today)

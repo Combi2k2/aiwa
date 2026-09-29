@@ -5,10 +5,11 @@ usual times of day: the peaks of the (smoothed) distribution of its start times,
 each with enough days behind it. A meal can have several (breakfast, lunch,
 dinner).
 
-Reminders are sampled, like every limit in aiwa: every so often, if nothing that
-looks like it has happened yet today, the chance of a reminder is the share of
-past days on which it had already started by this time of day. So it's unlikely
-before the usual time, even odds around it, and more and more likely after.
+Reminders are a rule (core/rule.py), sampled every 15 minutes while nothing that
+looks like it has happened yet today: the quantity is the share of past days on
+which it had already started by this time of day; threshold 0.5 (even odds when
+half the days had started), soft (0.2 → 18%, 0.8 → 82%); never before the
+earliest past start.
 """
 
 from __future__ import annotations
@@ -17,6 +18,8 @@ import math
 import random
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
+
+from aiwa.core.rule import Cadence, Rule, RuleParams
 
 DAY = 24 * 60
 
@@ -28,6 +31,8 @@ class ReminderParams:
     window: timedelta = timedelta(minutes=90)  # a slot covers its peak ± this
     min_absence: timedelta = timedelta(minutes=10)  # an absence in the window this long may be it
     check_every: timedelta = timedelta(minutes=15)
+    threshold: float = 0.5  # share of past days already started → 50% chance
+    softness: float = 0.2
     exclude: tuple[str, ...] = ("sleep", "toilet", "offline_task")  # handled elsewhere, or not worth reminding
 
 
@@ -99,26 +104,39 @@ def done_today(slot: Slot, today: list[tuple[datetime, datetime, str | None]], d
     return False
 
 
+@dataclass(frozen=True)
+class SlotNow:
+    slot: Slot
+    now: datetime
+    day_starts: time
+
+
+class ReminderRule(Rule[SlotNow]):
+    def __init__(self, params: ReminderParams = ReminderParams(), rng: random.Random | None = None):
+        super().__init__(RuleParams(threshold=params.threshold, softness=params.softness, range=(1e-9, None)), rng)
+
+    def measure(self, c: SlotNow) -> float:
+        return started_share(c.slot, c.now, c.day_starts)
+
+
 class RoutineReminders:
     """Every `check_every`, samples whether to remind about each routine not done yet today."""
 
     def __init__(self, params: ReminderParams = ReminderParams(), rng: random.Random | None = None):
         self.params = params
-        self.rng = rng or random.Random()
-        self.last_check: datetime | None = None
+        self.rule = ReminderRule(params, rng)
+        self.cadence = Cadence(params.check_every)
         self.settled: dict[str, date] = {}  # slot key → day it was reminded / skipped
 
     def step(self, now: datetime, slots: list[Slot], today: list[tuple[datetime, datetime, str | None]],
              day_starts: time) -> Slot | None:
-        if self.last_check is not None and now - self.last_check < self.params.check_every:
+        if not self.cadence.due(now):
             return None
-        self.last_check = now
         day = _day_of(now, day_starts)
         for slot in slots:
             if self.settled.get(slot.key()) == day or done_today(slot, today, day_starts, self.params):
                 continue
-            share = started_share(slot, now, day_starts)
-            if share > 0 and self.rng.random() < share:
+            if self.rule.decide(SlotNow(slot, now, day_starts)):
                 return slot
         return None
 

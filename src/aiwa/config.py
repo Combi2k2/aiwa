@@ -92,9 +92,10 @@ days = ["mon", "tue", "wed", "thu", "fri"]
 
 [shallow]
 # The shallow-work budget: the share of your time at the computer that may go to shallow
-# work (email, chat, admin) on workdays. A soft limit: the further over it you are, the
-# more likely aiwa mentions it (checked every 30 minutes, outside sessions).
+# work (email, chat, admin) on workdays. A soft limit: at the limit there's a 50% chance
+# aiwa mentions it per check (every 30 minutes, outside sessions), more above, less below.
 limit = 0.30
+softness = 0.05   # how gradual: 25% → 27% chance, 35% → 73%, 40% → 88%
 
 [bedtime]
 # An anchor for sleep, every night: from wind_down a reminder every 5 minutes while you're
@@ -289,7 +290,8 @@ def parse(raw: dict) -> Config:
         rhythm=parse_rhythm(raw.get("rhythm", {})),
         bedtime=parse_bedtime(raw.get("bedtime", {})),
         shutdown=parse_shutdown(raw.get("shutdown", {})),
-        shallow=BudgetParams(limit=raw.get("shallow", {}).get("limit", BudgetParams().limit)),
+        shallow=BudgetParams(limit=raw.get("shallow", {}).get("limit", BudgetParams().limit),
+                             softness=raw.get("shallow", {}).get("softness", BudgetParams().softness)),
         routines_always_ask=raw.get("routines", {}).get("always_ask", False),
         ai_enabled=raw.get("ai", {}).get("enabled", True),
         ai=AISettings(

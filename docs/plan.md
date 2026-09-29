@@ -334,3 +334,24 @@ Build order: morning start → routine questions → offline tasks → consisten
   days on which it had started by now. Outside sessions only.
 - "Around 12:30 is usually time for a meal. Time for it now?" → Going now / Later /
   Skip today (Going now and Skip today: no more reminders for it today).
+
+## Decisions 2026-09-29: rules as one abstraction (`core/rule.py`)
+- A rule = a quantity (`measure(context)`) against a **threshold**, with a **softness**
+  (width of the S-curve; 0 = hard), a **direction** (above/below), a **range** (where
+  it's active at all; `active(context)` for conditions beyond the quantity), and
+  `decide(context)`: measure → chance → sample. 50% chance at the threshold.
+  Optional `steps` for exact chances the user set. `AllOf` multiplies chances;
+  `Cadence` spaces the checks (the chance is per check).
+- Moved onto it:
+  - shallow budget: share vs. 30%, softness 5 pts (20% → 12%, 25% → 27%, 35% → 73%,
+    40% → 88% per 30-min check), active after 1 h at the computer;
+  - shutdown: time rule (threshold 18:00, the user's curve) × low-focus rule (5-min
+    focus below 0.3, softness 0.07, never at 0.6+), sampled every 5 min;
+  - low focus in sessions: 2-min score below 0.35, hard, active while not rising;
+  - routine questions: absence minutes, the user's exact steps (5 → 20%, 20 → 60%,
+    60 → 80%, 180 → 50%);
+  - routine reminders: share of past days already started, threshold 0.5, softness 0.2;
+  - capture: time on a shallow visit ≥ 15 s, in distraction ≥ 5 min (hard);
+  - thinking-walk suggestion: session deep minutes, threshold 35, softness 8, from 25.
+- Still plain hard checks inside the session state machine: away alarm (5 min), auto-end
+  (10 min), wrap-up (50 min), and the offline grace.

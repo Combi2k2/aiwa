@@ -1,7 +1,7 @@
 """Productive meditation (Deep Work, rule 2): a walk spent thinking through one
 well-defined problem.
 
-After a good session aiwa sometimes suggests one (and the tray can start one any
+After a good session aiwa sometimes suggests one (more likely the more deep work it had) (and the tray can start one any
 time). The walk is a focus session on an offline "task" (the problem): being
 away is the work, and it counts as deep minutes, up to its length (+ the usual
 grace). Back at the computer, the user writes down what they figured out.
@@ -13,19 +13,32 @@ import random
 from dataclasses import dataclass
 
 from aiwa.core.backlog import Task
+from aiwa.core.rule import Rule, RuleParams
 
 WALK_TASK_ID = -1  # not in the backlog
 
 
 @dataclass(frozen=True)
 class MeditationParams:
-    chance: float = 0.5  # after a good session, suggest a walk this often
-    min_deep_minutes: int = 25  # a "good session": at least this much deep work
+    threshold: float = 35  # deep minutes in the session → 50% chance of suggesting a walk
+    softness: float = 8  # 25 min → 22%, 50 min → 87%
+    min_deep_minutes: int = 25  # the rule's range: never after a session with less
     lengths: tuple[int, ...] = (15, 30, 45)  # minutes to choose from
 
 
+class SuggestWalk(Rule[int]):
+    """After a session: suggest a walk? The better the session, the more likely (core/rule.py)."""
+
+    def __init__(self, params: MeditationParams, rng: random.Random | None = None):
+        super().__init__(RuleParams(threshold=params.threshold, softness=params.softness,
+                                    range=(params.min_deep_minutes, None)), rng)
+
+    def measure(self, session_deep_minutes: int) -> float:
+        return session_deep_minutes
+
+
 def should_suggest(session_deep_minutes: int, params: MeditationParams, rng: random.Random) -> bool:
-    return session_deep_minutes >= params.min_deep_minutes and rng.random() < params.chance
+    return SuggestWalk(params, rng).decide(session_deep_minutes)
 
 
 def walk_task(problem: str, minutes: int) -> Task:
