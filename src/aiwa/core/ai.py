@@ -21,10 +21,11 @@ API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateC
 
 SYSTEM = (
     "You are the task assistant inside aiwa, a focus app. You help the user with their own tasks: "
-    "breaking a task into steps that each fit one focus session (under 50 minutes). Rules: never "
-    "invent work the task doesn't mention; don't make up specifics (chapter numbers, page counts, "
-    "names) that aren't given: keep a step general instead; keep the user's own wording; be brief; "
-    "plain text, no markdown."
+    "breaking a task into steps that each fit one focus session (under 50 minutes). Your steps are "
+    "suggestions the user edits: show a concrete, practical way to break the task down (kinds of "
+    "steps and good practices, e.g. a timed practice exam, summarising formulas, splitting by "
+    "chapter), and illustrative specifics are fine. Stay within the task's goal; be brief; plain "
+    "text, no markdown."
 )
 
 REASONS = {
@@ -55,7 +56,7 @@ class TaskHelper:
         return _json_list(self._ask(
             f"The user's task: “{title}”{detail}\nTheir estimate: {estimate} minutes. It is "
             f"{REASONS.get(reason, reason)}. Suggest 2 to 5 concrete steps, each doable in under 50 "
-            "minutes, based only on what the task says. Reply with only a JSON array of strings.",
+            "minutes, showing a good way to approach it. Reply with only a JSON array of strings.",
             json_reply=True,
         ))
 
