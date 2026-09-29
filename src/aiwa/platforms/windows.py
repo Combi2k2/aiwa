@@ -25,6 +25,10 @@ SYSTEM_APPS = {
 
 
 def install_autostart(command: list[str]) -> None:
+    # pythonw.exe: the same Python without a console window
+    pythonw = Path(command[0]).with_name("pythonw.exe")
+    if Path(command[0]).name.lower() == "python.exe" and pythonw.exists():
+        command = [str(pythonw), *command[1:]]
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
         winreg.SetValueEx(key, NAME, 0, winreg.REG_SZ, subprocess.list2cmdline(command))
 

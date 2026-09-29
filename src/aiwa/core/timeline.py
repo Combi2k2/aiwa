@@ -17,6 +17,13 @@ BROWSER_APPS = {
     "Safari",
     "Opera",
     "Arc",
+    # on Windows, ActivityWatch reports the program's file name
+    "chrome.exe",
+    "msedge.exe",
+    "brave.exe",
+    "firefox.exe",
+    "vivaldi.exe",
+    "opera.exe",
 }
 
 

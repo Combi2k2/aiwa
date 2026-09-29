@@ -15,6 +15,15 @@ Everything stays on your machine.
   ActivityWatch browser extension for website titles/URLs.
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 
+## Windows (not yet tested)
+
+Download [`scripts/windows/aiwa.bat`](https://github.com/Combi2k2/aiwa/raw/main/scripts/windows/aiwa.bat)
+and double-click it. It installs everything aiwa needs (uv, Python, ActivityWatch, aiwa
+itself, into your user folder, no admin rights needed), asks once for the optional API
+keys, puts an "aiwa" shortcut on the desktop and starts aiwa (its icon is next to the
+clock). Run the file again to update. Windows may warn about an unknown file the first
+time: "More info" → "Run anyway".
+
 ## Usage
 
 ```bash

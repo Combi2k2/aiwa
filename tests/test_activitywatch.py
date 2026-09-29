@@ -55,3 +55,13 @@ def test_takes_over_programs_left_behind_by_a_crashed_run(tmp_path):
         p.wait(timeout=5)  # the old ones were stopped...
     assert all(p.poll() is None for p in second.processes.values())  # ...and fresh ones started
     second.stop()
+
+
+def test_find_commands_in_per_program_folders(tmp_path):
+    # the Windows / Linux layout: activitywatch/aw-server/aw-server.exe
+    for module in ["aw-server", "aw-watcher-afk"]:
+        (tmp_path / module).mkdir()
+        (tmp_path / module / f"{module}.exe").write_text("")
+    commands = find_commands([tmp_path], ".exe", ["aw-watcher-afk", "aw-server"])
+    assert list(commands) == ["aw-server", "aw-watcher-afk"]
+    assert commands["aw-server"] == [str(tmp_path / "aw-server" / "aw-server.exe")]

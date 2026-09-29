@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import signal
+import sys
 import subprocess
 import time
 from pathlib import Path
@@ -110,23 +111,40 @@ class ActivityWatchSupervisor:
             stdout=log,
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),  # Windows: no console window per program
         )
 
 
 def _is_activitywatch(pid: int, commands: dict[str, list[str]]) -> bool:
     """Whether `pid` is still one of our ActivityWatch programs (pids get reused)."""
+    if sys.platform == "win32":
+        command = ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"]
+    else:
+        command = ["ps", "-o", "command=", "-p", str(pid)]
     try:
-        name = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True).stdout
+        name = subprocess.run(command, capture_output=True, text=True,
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
     except OSError:
         return False
+    if sys.platform == "win32":  # tasklist shows only the program's name
+        return any(Path(command[0]).name.lower() in name.lower() for command in commands.values())
     return any(command[0] in name for command in commands.values())
 
 
 def find_commands(directories: list[Path], suffix: str, modules: list[str]) -> dict[str, list[str]] | None:
-    """Command lines for `modules` from the first directory that has all of them."""
+    """Command lines for `modules` from the first directory that has all of them.
+
+    Each program is either right in the directory (macOS app bundle) or in a
+    folder of its own name (Windows and Linux: `aw-server/aw-server.exe`).
+    """
     for directory in directories:
-        paths = {m: directory / f"{m}{suffix}" for m in modules}
-        if all(p.exists() for p in paths.values()):
+        paths = {}
+        for m in modules:
+            for candidate in (directory / f"{m}{suffix}", directory / m / f"{m}{suffix}"):
+                if candidate.is_file():
+                    paths[m] = candidate
+                    break
+        if len(paths) == len(modules):
             ordered = sorted(modules, key=lambda m: m != SERVER)  # server first
             return {m: [str(paths[m])] for m in ordered}
     return None

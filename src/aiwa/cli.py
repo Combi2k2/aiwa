@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import argparse
 
+import sys
+
 from dotenv import load_dotenv
 
 from aiwa import config as config_mod
@@ -40,6 +42,12 @@ def main(argv: list[str] | None = None) -> int:
     autostart.add_argument("action", choices=["install", "uninstall", "status"])
     args = parser.parse_args(argv)
 
+    if sys.stdout is None:  # started without a console (Windows pythonw): log to a file instead
+        from platformdirs import user_log_path
+
+        log = user_log_path("aiwa") / "aiwa.log"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        sys.stdout = sys.stderr = open(log, "a", buffering=1, encoding="utf-8")
     load_dotenv(config_mod.CONFIG_PATH.parent / ".env")
     load_dotenv()  # a .env in the current directory, for development
 

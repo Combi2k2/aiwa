@@ -247,8 +247,9 @@ def load(path: Path = CONFIG_PATH) -> Config:
     """Load the config, writing the default file on first run."""
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(DEFAULT_CONFIG)
-    return parse(tomllib.loads(path.read_text()))
+        path.write_text(DEFAULT_CONFIG, encoding="utf-8")
+    # utf-8-sig: also reads a file saved with a byte-order mark (e.g. by Windows Notepad)
+    return parse(tomllib.loads(path.read_text(encoding="utf-8-sig")))
 
 
 def parse(raw: dict) -> Config:
