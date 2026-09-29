@@ -19,6 +19,7 @@ from aiwa.core.quota import QuotaParams
 from aiwa.core.sampling import SamplingParams
 from aiwa.core.schedule import RhythmParams
 from aiwa.core.session import SessionParams
+from aiwa.core.shutdown import ShutdownParams
 
 CONFIG_PATH = user_config_path("aiwa") / "config.toml"
 DATA_DIR = user_data_path("aiwa")
@@ -79,6 +80,14 @@ kept_deep_minutes = 25       # a block is kept (chain +1) with this much deep wo
 [routines]
 # After an absence aiwa sometimes asks what it was (more often for longer ones).
 always_ask = false   # true: ask about every absence of 5+ minutes (for trying it out)
+
+[shutdown]
+# The end of the workday (Deep Work's shutdown ritual): go through today's notes, write
+# down anything still on your mind, look at tomorrow, then "shutdown complete". After
+# that aiwa stops asking about work for the day.
+enabled = true
+time = "18:00"
+days = ["mon", "tue", "wed", "thu", "fri"]
 
 [bedtime]
 # An anchor for sleep, every night: from wind_down a reminder every 5 minutes while you're
@@ -204,6 +213,7 @@ class Config:
     day_starts: time = time(4, 0)
     rhythm: RhythmParams = field(default_factory=RhythmParams)
     bedtime: BedtimeParams = field(default_factory=BedtimeParams)
+    shutdown: ShutdownParams = field(default_factory=ShutdownParams)
     routines_always_ask: bool = False
     ai_enabled: bool = True
     ai: AISettings = field(default_factory=AISettings)
@@ -269,6 +279,7 @@ def parse(raw: dict) -> Config:
         day_starts=time.fromisoformat(raw.get("scoreboard", {}).get("day_starts", "04:00")),
         rhythm=parse_rhythm(raw.get("rhythm", {})),
         bedtime=parse_bedtime(raw.get("bedtime", {})),
+        shutdown=parse_shutdown(raw.get("shutdown", {})),
         routines_always_ask=raw.get("routines", {}).get("always_ask", False),
         ai_enabled=raw.get("ai", {}).get("enabled", True),
         ai=AISettings(
@@ -302,6 +313,15 @@ def parse_bedtime(raw: dict) -> BedtimeParams:
         wind_down=time.fromisoformat(raw["wind_down"]) if "wind_down" in raw else d.wind_down,
         hard_stop=time.fromisoformat(raw["hard_stop"]) if "hard_stop" in raw else d.hard_stop,
         alarm=raw.get("alarm", d.alarm),
+    )
+
+
+def parse_shutdown(raw: dict) -> ShutdownParams:
+    d = ShutdownParams()
+    return ShutdownParams(
+        enabled=raw.get("enabled", d.enabled),
+        time=time.fromisoformat(raw["time"]) if "time" in raw else d.time,
+        days=tuple(day.lower()[:3] for day in raw.get("days", d.days)),
     )
 
 

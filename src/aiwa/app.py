@@ -32,6 +32,7 @@ from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
 from aiwa.bedtime_prompts import BedtimePrompts
 from aiwa.capture_prompts import CapturePrompts
+from aiwa.shutdown_prompts import ShutdownPrompts
 from aiwa.core.backlog import minutes_text
 from aiwa.core.consistency import ConsistencyParams, consistency
 from aiwa.core.offline import OfflineWork
@@ -136,6 +137,8 @@ class Aiwa:
                                        classify=(lambda text: classify_activity(openjev, text)) if openjev else None)
         self.capture = CapturePrompts(self.store, self.popup, self.tasks,
                                       (lambda note: is_todo(openjev, note)) if openjev else None)
+        self.shutdown = ShutdownPrompts(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
+                                        self.shutdown_wrap_up)
         self.prompts = RhythmPrompts(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
             request_session=lambda: self.tasks.request_session(self.start_session),
@@ -187,7 +190,8 @@ class Aiwa:
         self.update_scoreboard(now)
         self.capture.refresh()
         self.prompts.check_block(now, in_session=self.session is not None)
-        self.prompts.check_evening(now)
+        if not self.shutdown.done_today(now):  # the shutdown already asked what's on your mind
+            self.prompts.check_evening(now)
 
     # --- focus sessions --------------------------------------------------------
 
@@ -200,6 +204,25 @@ class Aiwa:
             return f"{goal} Your task list is empty: add what needs doing."
         where = f"{group.name}: " if group else ""
         return f"{goal} First up: {where}{task.title} (~{minutes_text(task.estimate)})."
+
+    def shutdown_wrap_up(self, now: datetime) -> str:
+        """The shutdown's last step: today's deep work, and where tomorrow starts."""
+        deep = self.scores.today(now).deep_minutes
+        quota = self.quota.today(now, deep)
+        lines = [f"Deep work today: {minutes_text(deep)} of {minutes_text(quota)}."]
+        tz = now.astimezone().tzinfo
+        today = self.rhythm.today(now)
+        for ahead in range(1, 8):
+            block = self.rhythm.block(today + timedelta(days=ahead), tz)
+            if block is not None:
+                when = "Tomorrow" if ahead == 1 else f"{block.start.astimezone():%A}"
+                lines.append(f"{when}: deep-work block at {block.start.astimezone():%H:%M}.")
+                break
+        group, task = self.tasks.next_task(now)
+        if task is not None:
+            lines.append(f"First up: {task.title} (~{minutes_text(task.estimate)}).")
+        lines.append("Everything is written down. The workday is over.")
+        return "\n".join(lines)
 
     def toggle_session(self) -> None:
         if self.session:
@@ -336,7 +359,10 @@ class Aiwa:
             return  # ActivityWatch not reachable; tick() reports it in the tray
         question = self.classifier.observe(current, now)
         category = self.categorizer.categorize(current) if current is not None and not current.away else None
-        self.capture.step(now, current, category, in_session=self.session is not None)
+        in_session = self.session is not None
+        # after the workday is shut down, no more work questions
+        self.capture.step(now, current, category, in_session=in_session or self.shutdown.done_today(now))
+        self.shutdown.step(now, active=current is not None and not current.away, in_session=in_session)
         if question and not self.popup.isVisible():
             self.ask(question)
         elif self.sampling and not self.popup.isVisible():

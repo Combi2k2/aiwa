@@ -109,7 +109,8 @@ CREATE TABLE IF NOT EXISTS notes (
     source_app TEXT,
     source_title TEXT,
     source_url TEXT,
-    task_id INTEGER                 -- the task it became, if any
+    task_id INTEGER,                -- the task it became, if any
+    reviewed INTEGER DEFAULT 0      -- 1 once gone through in the shutdown ritual
 );
 CREATE TABLE IF NOT EXISTS absences (
     id INTEGER PRIMARY KEY,
@@ -151,6 +152,8 @@ class Store:
         for column, kind in [("confidence", "REAL"), ("confirmed_at", "TEXT")]:
             if column not in columns:  # databases created by older versions
                 self._db.execute(f"ALTER TABLE categories ADD COLUMN {column} {kind}")
+        if "reviewed" not in {row[1] for row in self._db.execute("PRAGMA table_info(notes)")}:
+            self._db.execute("ALTER TABLE notes ADD COLUMN reviewed INTEGER DEFAULT 0")
         absence_columns = {row[1] for row in self._db.execute("PRAGMA table_info(absences)")}
         for column, kind in [("note", "TEXT"), ("confidence", "REAL")]:
             if column not in absence_columns:
@@ -438,6 +441,18 @@ class Store:
             "SELECT created_at, text, COALESCE(source_url, source_app), task_id FROM notes ORDER BY created_at"
         ).fetchall()
         return [(datetime.fromisoformat(c), t, src, task) for c, t, src, task in rows]
+
+    def notes_to_review(self, until: datetime) -> list[tuple[int, str, str | None]]:
+        """(id, text, source url or app) of notes before `until` not yet reviewed nor made a task."""
+        return self._db.execute(
+            "SELECT id, text, COALESCE(source_url, source_app) FROM notes"
+            " WHERE reviewed = 0 AND task_id IS NULL AND created_at < ? ORDER BY created_at",
+            (until.astimezone(timezone.utc).isoformat(),),
+        ).fetchall()
+
+    def mark_note_reviewed(self, note_id: int) -> None:
+        self._db.execute("UPDATE notes SET reviewed = 1 WHERE id = ?", (note_id,))
+        self._db.commit()
 
     def task_sources(self) -> list:
         """(task id, core.capture.Source) for open tasks that came from a tab or window."""
