@@ -1,6 +1,9 @@
-"""The rhythmic routine's prompts: plan tomorrow in the evening, warm-up and block
-reminders in the morning. Uses the pure logic in core/schedule.py and core/rhythm.py;
-this module only decides when to show which dialog and records the answers.
+"""The daily routine's prompts: what needs doing tomorrow (evening), the deep-work
+block (morning), planning before a session with an empty list, and handing over
+tasks one at a time during a session.
+
+The logic lives in core/ (schedule, planning, rhythm); this module only decides
+when to show which window and records the answers.
 """
 
 from __future__ import annotations
@@ -8,13 +11,14 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Callable
 
+from aiwa.core.planning import Assessor, DraftTask, PlanningConversation, Writer
 from aiwa.core.rhythm import Rhythm
-from aiwa.core.schedule import Block, BlockReminders, Reminder, RhythmParams
-from aiwa.core.store import Store
-from aiwa.ui.plan_dialog import PlanDialog
+from aiwa.core.schedule import Block, BlockReminders, RhythmParams
+from aiwa.core.store import Store, Todo
+from aiwa.ui.plan_chat import PlanChat
 from aiwa.ui.popup import Popup
 
-PLAN_LATER = timedelta(minutes=30)  # "Later" on the planning dialog asks again after this
+PLAN_LATER = timedelta(minutes=30)  # "Later" in the evening conversation asks again after this
 
 
 class RhythmPrompts:
@@ -26,6 +30,8 @@ class RhythmPrompts:
         day_starts: time,
         popup: Popup,
         start_session: Callable[[], None],
+        assessor: Assessor | None,
+        writer: Writer | None,
     ):
         self.store = store
         self.rhythm = rhythm
@@ -33,78 +39,123 @@ class RhythmPrompts:
         self.day_starts = day_starts
         self.popup = popup
         self.start_session = start_session
-        self.dialog = PlanDialog()
+        self.assessor = assessor
+        self.writer = writer
+        self.chat = PlanChat()
         self.plan_later_until: datetime | None = None
         self.reminders: BlockReminders | None = None
 
-    # --- evening: plan tomorrow ------------------------------------------------
+    # --- planning ------------------------------------------------------------------
+
+    def today(self, now: datetime) -> date:
+        return self.rhythm.today(now)
+
+    def planning_day(self, now: datetime) -> date:
+        """In the evening (and after midnight until the day ends) plan tomorrow, otherwise today."""
+        local = now.astimezone().time()
+        evening = local >= self.params.planning_time or local < self.day_starts
+        return self.today(now) + timedelta(days=1 if evening else 0)
 
     def planning_due(self, now: datetime) -> bool:
-        local = now.astimezone().time()
-        in_evening = local >= self.params.planning_time or local < self.day_starts  # until the day ends
-        if not in_evening or self.dialog.isVisible():
+        tomorrow = self.today(now) + timedelta(days=1)
+        if self.planning_day(now) != tomorrow or self.chat.isVisible():
             return False
         if self.plan_later_until and now < self.plan_later_until:
             return False
-        return self.store.get_plan(self.tomorrow(now)) is None
+        return self.store.todos_planned_for(tomorrow) == 0
 
-    def tomorrow(self, now: datetime) -> date:
-        return self.rhythm.today(now) + timedelta(days=1)
+    def open_planner(self, day: date | None = None, then: Callable[[], None] | None = None) -> None:
+        now = datetime.now(timezone.utc)
+        day = day or self.planning_day(now)
+        carried = [t.text for t in self.store.open_todos(day)]
+        conversation = PlanningConversation(day, self.assessor, self.writer)
 
-    def open_planner(self, now: datetime | None = None) -> None:
-        now = now or datetime.now(timezone.utc)
-        day = self.tomorrow(now)
-        existing = self.store.get_plan(day)
-        default = self.rhythm.block(day, now.astimezone().tzinfo)
-        start = existing.block_start if existing else (default.start.time() if default else self.params.start)
-        self.dialog.ask(
-            day, start, existing.task if existing else "", existing.warmup if existing else "",
-            on_save=self._save_plan,
-            on_later=lambda: setattr(self, "plan_later_until", datetime.now(timezone.utc) + PLAN_LATER),
+        def save(tasks: list[DraftTask]) -> None:
+            self.store.add_todos(day, [(t.text, t.kind, t.minutes) for t in tasks], datetime.now(timezone.utc))
+            if then:
+                then()
+
+        def later() -> None:
+            self.plan_later_until = datetime.now(timezone.utc) + PLAN_LATER
+
+        self.chat.open(conversation, conversation.opening(carried), save, later, can_save=bool(carried))
+
+    # --- sessions and tasks -----------------------------------------------------------
+
+    def request_session(self) -> None:
+        """Start a session, but plan first if there's nothing on today's list."""
+        today = self.today(datetime.now(timezone.utc))
+        if self.store.open_todos(today):
+            self.start_session()
+        else:
+            self.open_planner(today, then=self.start_session)
+
+    def next_task(self, now: datetime) -> Todo | None:
+        tasks = self.store.open_todos(self.today(now))
+        return tasks[0] if tasks else None
+
+    def offer_task(self) -> None:
+        """Hand over the next task (at session start, and after each finished one)."""
+        now = datetime.now(timezone.utc)
+        task = self.next_task(now)
+        if task is None:
+            self.popup.ask(
+                "Everything on today's list is done. Add more?",
+                lambda a: self.open_planner(self.today(datetime.now(timezone.utc))) if a == "add" else None,
+                [("Add tasks", "add"), ("Not now", "no")],
+            )
+            return
+        size = f"  (~{task.minutes} min)" if task.minutes else ""
+        self.popup.ask(
+            f"Next: {task.text}{size}",
+            lambda a: self._on_task_answer(a, task),
+            [("Start", "start"), ("Pick another", "another"), ("Done", "done")],
         )
 
-    def _save_plan(self, day: date, start: time, task: str, warmup: str) -> None:
-        self.store.save_plan(day, start, task, warmup, datetime.now(timezone.utc))
+    def task_done(self) -> None:
+        """Tray: the current task is finished; hand over the next one."""
+        task = self.next_task(datetime.now(timezone.utc))
+        if task:
+            self.store.set_todo_status(task.id, "done", datetime.now(timezone.utc))
+        self.offer_task()
 
-    # --- morning: warm-up and block ---------------------------------------------
+    def _on_task_answer(self, answer: str, task: Todo) -> None:
+        now = datetime.now(timezone.utc)
+        if answer == "done":
+            self.store.set_todo_status(task.id, "done", now)
+            self.offer_task()
+        elif answer == "another":
+            self.store.move_todo_to_end(task.id, self.today(now))
+            self.offer_task()
+
+    # --- the deep-work block -------------------------------------------------------------
 
     def todays_block(self, now: datetime) -> Block | None:
-        return self.rhythm.block(self.rhythm.today(now), now.astimezone().tzinfo)
+        return self.rhythm.block(self.today(now), now.astimezone().tzinfo)
 
     def check_block(self, now: datetime, in_session: bool) -> None:
-        """Show the warm-up or block reminder if one is due and nothing else is on screen."""
+        """At block time, ask to start a session (if nothing else is on screen)."""
         block = self.todays_block(now)
         if block is None:
             self.reminders = None
             return
         if self.reminders is None or self.reminders.block != block:
-            self.reminders = BlockReminders(block, timedelta(minutes=self.params.warmup_minutes))
+            self.reminders = BlockReminders(block)
             if "skipped" in self.store.block_actions(block.day):
                 self.reminders.skip()
-        if self.popup.isVisible():
+        if self.popup.isVisible() or self.chat.isVisible() or not self.reminders.due(now, in_session):
             return
-        due = self.reminders.due(now, in_session)
-        if due is None:
-            return
-        self.reminders.shown(due)
-        if due is Reminder.WARMUP:
-            self.popup.ask(
-                f"Warm-up time: {block.warmup}.\nYour deep-work block starts at {block.start.astimezone():%H:%M}.",
-                lambda _: None,
-                [("OK", "ok")],
-            )
-        else:
-            task = f"\nToday's task: {block.task}" if block.task else ""
-            self.popup.ask(
-                f"It's {block.start.astimezone():%H:%M}: your deep-work block.{task}\nStart a focus session?",
-                lambda answer: self._on_block_answer(answer, block),
-                [("Start session", "start"), ("In 10 min", "later"), ("Skip today", "skip")],
-            )
+        self.reminders.shown = True
+        self.popup.ask(
+            f"It's {block.start.astimezone():%H:%M}: your deep-work block.\nStart a focus session?",
+            lambda answer: self._on_block_answer(answer, block),
+            [("Start session", "start"), ("In 10 min", "later"), ("Skip today", "skip")],
+        )
 
     def _on_block_answer(self, answer: str, block: Block) -> None:
         now = datetime.now(timezone.utc)
         if answer == "start":
-            self.start_session()
+            self.request_session()
         elif answer == "later":
             self.reminders.snooze(now)
         else:

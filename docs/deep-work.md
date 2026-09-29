@@ -97,15 +97,15 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
 
 - [ ] **Shift deep work toward the morning**, gradually (a few hours after waking tends
   to be best for most people; night-shift workers not covered for now)
-- [~] **Plan tomorrow before bed** (prompted), so the morning starts with an obvious plan
+- [x] **Plan tomorrow before bed** (prompted), so the morning starts with an obvious plan
   → also covers Newport's *shutdown ritual*. First version (time/task/warm-up dialog)
-  built; to be changed to "What needs to be done tomorrow?" feeding the to-do list
-- [ ] **aiwa's own to-do list**: tasks with status, day, order, sub-steps, deep/shallow
+  replaced by "What needs to be done tomorrow?" feeding the to-do list (done)
+- [x] **aiwa's own to-do list**: tasks with status, day, order, sub-steps, deep/shallow
   (the small-task inbox moves into it)
-- [ ] **Planning service**: free text → tasks; big tasks → small steps; next task
+- [~] **Planning service**: free text → tasks; big tasks → small steps; next task
   (rule-based first, AI later)
-- [ ] **Tasks at session start**, handed over one at a time
-- [ ] **AI integration**: conversation, planning, task breakdown, encouragement
+- [x] **Tasks at session start**, handed over one at a time
+- [~] **AI integration**: conversation, planning, task breakdown, encouragement
 - [ ] **Sleep anchor**: wind-down pokes in the evening, escalating late at night; be
   understanding, not judgmental, when people resist it
 - [ ] **Warm-up before deep work**: good-habit shallow work (morning routine, email,

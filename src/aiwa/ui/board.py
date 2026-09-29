@@ -7,6 +7,7 @@ from datetime import datetime
 from aiwa.core.history import SessionSummary
 from aiwa.core.schedule import Block
 from aiwa.core.scoreboard import DayScore
+from aiwa.core.store import Todo
 
 ACTIVITY_ORDER = ["deep", "shallow", "distraction", "neutral", "unclassified", "untracked", "away"]
 
@@ -37,15 +38,24 @@ def rhythm_lines(block: Block | None, now: datetime, chain: int, sessions: list[
         lines.append("No deep-work block today")
     else:
         span = f"{block.start.astimezone():%H:%M}–{block.end.astimezone():%H:%M}"
-        task = f" · {block.task}" if block.task else ""
         if now < block.start:
-            lines.append(f"Deep-work block today: {span}{task}")
+            lines.append(f"Deep-work block today: {span}")
         elif now < block.end:
-            lines.append(f"Deep-work block now: {span}{task}")
+            lines.append(f"Deep-work block now: {span}")
         else:
             lines.append(f"Deep-work block today was {span}")
     lines.append(f"Chain: {chain} day{'s' if chain != 1 else ''} in a row")
     if sessions:
         deep = sum(s.deep_minutes for s in sessions)
         lines.append(f"Sessions today: {len(sessions)} · {deep} min deep")
+    return lines
+
+
+def task_lines(next_task: Todo | None, done_today: int, left: int) -> list[str]:
+    if next_task is None and not done_today:
+        return ["Tasks: none planned yet (Plan…)"]
+    lines = [f"Tasks today: {done_today} done · {left} left"]
+    if next_task:
+        size = f" (~{next_task.minutes} min)" if next_task.minutes else ""
+        lines.append(f"Next task: {next_task.text}{size}")
     return lines

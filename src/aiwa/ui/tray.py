@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
 from aiwa.ui.icon import scope_icon
 
-SCOREBOARD_LINES = 8  # room for the day's numbers plus block, chain and sessions
+SCOREBOARD_LINES = 10  # room for the day's numbers plus block, chain, sessions and tasks
 
 
 class Tray:
@@ -17,6 +17,7 @@ class Tray:
         self,
         on_session: Callable[[], None],
         on_plan: Callable[[], None],
+        on_task_done: Callable[[], None],
         on_rate: Callable[[], None],
         on_inbox: Callable[[], None],
         on_snooze: Callable[[], None],
@@ -34,7 +35,8 @@ class Tray:
             line.setVisible(False)
         self._menu.addSeparator()
         self._session = self._add("Start focus session", on_session)
-        self._add("Plan tomorrow…", on_plan)
+        self._add("Current task done → next", on_task_done)
+        self._add("Plan…", on_plan)
         self._add("Rate my focus now…", on_rate)
         self._add("Small-task inbox", on_inbox)
         self._add("Snooze nudges for 1 hour", on_snooze)

@@ -11,6 +11,7 @@ from pathlib import Path
 
 from platformdirs import user_config_path, user_data_path
 
+from aiwa.core.ai import AISettings
 from aiwa.core.events import Category
 from aiwa.core.focus.params import FocusParams
 from aiwa.core.sampling import SamplingParams
@@ -51,14 +52,21 @@ deep_threshold = 0.6            # a minute counts as deep work at this intensity
 daily_goal_minutes = 60  # deep minutes to aim for each day (shown as a ring on the tray icon)
 day_starts = "04:00"     # when "today" begins; work after midnight counts toward the day before
 
+[ai]
+# The planning conversation's AI (NVIDIA's hosted models; key: NVIDIA_API_KEY in .env).
+# Without it, or when it doesn't answer in time, aiwa uses simple built-in wording.
+enabled = true
+model = "nvidia/nemotron-3.5-lightning-30b-a3b"
+timeout_seconds = 30
+thinking = true
+
 [rhythm]
 # A deep-work block at the same time every day (Deep Work's "rhythmic" style).
-# Each evening aiwa asks for tomorrow's plan; a plan overrides these defaults for that day.
+# Each evening aiwa asks what needs to be done tomorrow (the planning conversation).
 days = ["mon", "tue", "wed", "thu", "fri"]
 start = "09:00"
 minutes = 90
-planning_time = "21:30"      # when to ask for tomorrow's plan
-warmup_minutes = 20          # remind about the planned warm-up this long before the block
+planning_time = "21:30"      # when to ask what needs to be done tomorrow
 kept_deep_minutes = 25       # a block is kept (chain +1) with this much deep work in a session in it
 
 [session]
@@ -173,6 +181,9 @@ class Config:
     daily_goal_minutes: int = 60
     day_starts: time = time(4, 0)
     rhythm: RhythmParams = field(default_factory=RhythmParams)
+    ai_enabled: bool = True
+    ai: AISettings = field(default_factory=AISettings)
+    nvidia_api_key: str | None = None
     session: SessionParams = field(default_factory=SessionParams)
     low_focus_below: float = 0.35
     alarm_sound: Path | None = None  # None = built-in
@@ -228,6 +239,13 @@ def parse(raw: dict) -> Config:
         daily_goal_minutes=raw.get("scoreboard", {}).get("daily_goal_minutes", 60),
         day_starts=time.fromisoformat(raw.get("scoreboard", {}).get("day_starts", "04:00")),
         rhythm=parse_rhythm(raw.get("rhythm", {})),
+        ai_enabled=raw.get("ai", {}).get("enabled", True),
+        ai=AISettings(
+            model=raw.get("ai", {}).get("model", AISettings.model),
+            timeout=raw.get("ai", {}).get("timeout_seconds", AISettings.timeout),
+            thinking=raw.get("ai", {}).get("thinking", AISettings.thinking),
+        ),
+        nvidia_api_key=os.environ.get("NVIDIA_API_KEY"),
         session=parse_session(raw.get("session", {})),
         low_focus_below=raw.get("session", {}).get("low_focus_below", 0.35),
         alarm_sound=Path(raw["session"]["alarm_sound"]).expanduser() if raw.get("session", {}).get("alarm_sound") else None,
@@ -254,7 +272,6 @@ def parse_rhythm(raw: dict) -> RhythmParams:
         start=clock("start", d.start),
         minutes=raw.get("minutes", d.minutes),
         planning_time=clock("planning_time", d.planning_time),
-        warmup_minutes=raw.get("warmup_minutes", d.warmup_minutes),
         kept_deep_minutes=raw.get("kept_deep_minutes", d.kept_deep_minutes),
     )
 

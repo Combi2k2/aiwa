@@ -22,15 +22,16 @@ from aiwa.core.events import Category, Finding, Level, Segment
 from aiwa.core.focus import moment
 from aiwa.core.sampling import SamplingSchedule
 from aiwa.core.scoreboard import ScoreKeeper
+from aiwa.core.scoreboard.day import day_bounds
 from aiwa.core.session import Action, BelowThreshold, FocusSession
-from aiwa.core.openjev import Openjev
+from aiwa.core.openjev import Openjev, assess_task
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
 from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
 from aiwa.rhythm_prompts import RhythmPrompts
 from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, server_check
-from aiwa.ui.board import rhythm_lines, scoreboard_lines
+from aiwa.ui.board import rhythm_lines, scoreboard_lines, task_lines
 from aiwa.ui.inbox import Inbox
 from aiwa.ui.popup import Popup
 from aiwa.ui.sound import Alarm
@@ -61,6 +62,8 @@ class Aiwa:
             if config.openjev_enabled and config.openjev_api_key
             else None
         )
+        self.assessor = (lambda task: assess_task(openjev, task)) if openjev else None  # deep/shallow, size, vague?
+        self.writer = make_writer(config)  # the planning conversation's AI, or None (templates)
         self.classifier = ClassificationLoop(
             config,
             self.store,
@@ -91,6 +94,7 @@ class Aiwa:
         self.tray = Tray(
             on_session=self.toggle_session,
             on_plan=lambda: self.prompts.open_planner(),
+            on_task_done=lambda: self.prompts.task_done(),
             on_rate=lambda: self.ask_focus("manual"),
             on_inbox=self.open_inbox,
             on_snooze=self.snooze_hour,
@@ -101,7 +105,8 @@ class Aiwa:
         )
         self.popup = Popup()
         self.prompts = RhythmPrompts(
-            self.store, self.rhythm, config.rhythm, config.day_starts, self.popup, start_session=self.start_session
+            self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
+            start_session=self.start_session, assessor=self.assessor, writer=self.writer,
         )
         self.inbox = Inbox(self.store)
         self.timer = QTimer()
@@ -141,7 +146,7 @@ class Aiwa:
         if self.session:
             self.stop_session(datetime.now(timezone.utc))
         else:
-            self.start_session()
+            self.prompts.request_session()  # plans first if today's list is empty
 
     def start_session(self) -> None:
         if self.session:
@@ -151,6 +156,7 @@ class Aiwa:
         self.session = FocusSession(now, self.config.session)
         self.session_checked = now
         self.tray.set_session(0)
+        self.prompts.offer_task()  # hand over the first task
 
     def stop_session(self, now: datetime, ended_by: str = "user") -> None:
         if not self.session:
@@ -219,8 +225,12 @@ class Aiwa:
         except (OSError, RuntimeError):
             return
         today = self.scores.today(now)
-        lines = scoreboard_lines(today, self.config.focus.deep_threshold) + rhythm_lines(
-            self.prompts.todays_block(now), now, self.rhythm.chain(now), self.rhythm.todays_sessions(now)
+        _, day_start, day_end = day_bounds(now, self.config.day_starts)
+        lines = (
+            scoreboard_lines(today, self.config.focus.deep_threshold)
+            + rhythm_lines(self.prompts.todays_block(now), now, self.rhythm.chain(now), self.rhythm.todays_sessions(now))
+            + task_lines(self.prompts.next_task(now), self.store.todos_done_between(day_start, day_end),
+                         len(self.store.open_todos(self.prompts.today(now))))
         )
         self.tray.set_scoreboard(lines, today.goal_progress)
 
@@ -313,6 +323,19 @@ class Aiwa:
     def snooze_hour(self) -> None:
         self.policy.snooze(datetime.now(timezone.utc) + timedelta(hours=1))
         self.tray.set_status("snoozed for 1 hour")
+
+
+def make_writer(config: Config):
+    """The AI for the planning conversation, if enabled and a key is set; otherwise None."""
+    if not (config.ai_enabled and config.nvidia_api_key):
+        return None
+    try:
+        from aiwa.core.ai import PlanningWriter
+
+        return PlanningWriter(config.nvidia_api_key, config.ai)
+    except Exception as e:  # e.g. the langchain package is missing: plan with templates
+        print(f"planning AI unavailable ({e.__class__.__name__}); using built-in wording", flush=True)
+        return None
 
 
 def set_autostart(enabled: bool) -> None:

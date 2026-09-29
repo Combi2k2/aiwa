@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timedelta, timezone
 
 from aiwa.core.history import DayOutcome, chain_length, deep_minutes
 from aiwa.core.rhythm import Rhythm
-from aiwa.core.schedule import BlockReminders, Plan, Reminder, RhythmParams, block_for
+from aiwa.core.schedule import BlockReminders, Plan, RhythmParams, block_for
 from aiwa.core.scoreboard.ledger import MinuteEntry
 from aiwa.core.store import Store
 from aiwa.ui.board import rhythm_lines
@@ -21,48 +21,41 @@ def test_default_block_on_weekdays_only():
     assert block_for(date(2026, 10, 4), PARAMS, None, UTC) is None  # Sunday
 
 
-def test_a_plan_overrides_the_rhythm_even_on_a_day_off():
-    plan = Plan(date(2026, 10, 4), time(7, 30), "write intro", "tea + notes")
-    block = block_for(date(2026, 10, 4), PARAMS, plan, UTC)
-    assert block.start.time() == time(7, 30) and block.task == "write intro"
-
-
-def reminders(warmup="coffee + notes"):
-    block = block_for(MON, PARAMS, Plan(MON, time(9, 0), "task", warmup), UTC)
-    return BlockReminders(block, timedelta(minutes=20))
+def test_a_plan_can_move_the_block_even_on_a_day_off():
+    block = block_for(date(2026, 10, 4), PARAMS, Plan(date(2026, 10, 4), time(7, 30)), UTC)
+    assert block.start.time() == time(7, 30)
 
 
 def at(hh, mm):
     return datetime(2026, 9, 28, hh, mm, tzinfo=UTC)
 
 
-def test_warmup_then_start_reminder():
+def reminders():
+    return BlockReminders(block_for(MON, PARAMS, None, UTC))
+
+
+def test_block_reminder_at_block_time_once():
     r = reminders()
-    assert r.due(at(8, 30), in_session=False) is None
-    assert r.due(at(8, 40), in_session=False) is Reminder.WARMUP
-    r.shown(Reminder.WARMUP)
-    assert r.due(at(8, 50), in_session=False) is None
-    assert r.due(at(9, 0), in_session=False) is Reminder.START
-
-
-def test_no_warmup_reminder_without_a_planned_warmup():
-    assert reminders(warmup="").due(at(8, 45), in_session=False) is None
+    assert not r.due(at(8, 59), in_session=False)
+    assert r.due(at(9, 0), in_session=False)
+    r.shown = True
+    assert not r.due(at(9, 1), in_session=False)
 
 
 def test_snooze_asks_again_after_10_minutes_and_skip_stops_it():
     r = reminders()
-    r.shown(Reminder.START)
+    r.shown = True
     r.snooze(at(9, 0))
-    assert r.due(at(9, 5), in_session=False) is None
-    assert r.due(at(9, 10), in_session=False) is Reminder.START
+    assert not r.due(at(9, 5), in_session=False)
+    assert r.due(at(9, 10), in_session=False)
     r.skip()
-    assert r.due(at(9, 20), in_session=False) is None
+    assert not r.due(at(9, 20), in_session=False)
 
 
 def test_no_reminder_in_a_session_or_after_the_block():
     r = reminders()
-    assert r.due(at(9, 5), in_session=True) is None
-    assert r.due(at(10, 31), in_session=False) is None
+    assert not r.due(at(9, 5), in_session=True)
+    assert not r.due(at(10, 31), in_session=False)
 
 
 # --- history.py ------------------------------------------------------------------
@@ -99,14 +92,13 @@ def test_a_block_is_kept_with_enough_deep_work_in_a_session(tmp_path):
 
 def test_plans_round_trip(tmp_path):
     store = Store(tmp_path / "db")
-    store.save_plan(MON, time(8, 15), "task", "warm-up", at(21, 30))
-    assert store.get_plan(MON) == Plan(MON, time(8, 15), "task", "warm-up")
+    store.save_plan(MON, time(8, 15), at(21, 30))
+    assert store.get_plan(MON) == Plan(MON, time(8, 15))
 
 
 # --- board.py ----------------------------------------------------------------------
 
 def test_rhythm_lines():
-    block = block_for(MON, PARAMS, Plan(MON, time(9, 0), "write intro"), UTC)
-    lines = rhythm_lines(block, at(8, 0), chain=3, sessions=[])
-    assert lines[0].startswith("Deep-work block today: ") and lines[0].endswith("· write intro")
+    lines = rhythm_lines(block_for(MON, PARAMS, None, UTC), at(8, 0), chain=3, sessions=[])
+    assert lines[0].startswith("Deep-work block today: ")
     assert lines[1] == "Chain: 3 days in a row"

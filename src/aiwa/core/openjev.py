@@ -52,3 +52,48 @@ class Openjev:
             return Category(choice), float(answer.get("probabilities", {}).get(choice, 0))
         except (requests.RequestException, KeyError, ValueError):
             return None
+
+
+SIZE_MINUTES = {"under_25": 15, "25_to_50": 40, "50_to_120": 85, "over_120": 150, "unclear": None}
+
+TASK_QUESTIONS = {
+    "kind": {
+        "type": "choice",
+        "instructions": "What kind of work is this task?",
+        "criteria": {
+            "deep": "Cognitively demanding: writing, coding, designing, studying, analysing",
+            "shallow": "Logistics or communication: email, messages, scheduling, admin, errands",
+        },
+    },
+    "size": {
+        "type": "choice",
+        "instructions": "How long will this task take one focused person?",
+        "criteria": {
+            "under_25": "Under 25 minutes",
+            "25_to_50": "25 to 50 minutes",
+            "50_to_120": "Between 50 minutes and 2 hours",
+            "over_120": "More than 2 hours",
+            "unclear": "Impossible to tell: the task is too vague or depends on context not given",
+        },
+    },
+    "specific": {
+        "type": "noul",
+        "instructions": "Is the task specific enough that someone could estimate its size and know when it is done?",
+        "criteria": {"true": "Concrete scope and a clear end point", "false": "Vague, open-ended, or needs context that is not given"},
+    },
+}
+
+
+def assess_task(client: Openjev, task: str):
+    """Kind, estimated minutes and specificity of a to-do item, or None if the call fails."""
+    from aiwa.core.planning import Assessment
+
+    try:
+        a = client.ask(f'A person\'s to-do item: "{task}"', TASK_QUESTIONS)
+        return Assessment(
+            kind=a["kind"]["choice"],
+            minutes=SIZE_MINUTES.get(a["size"]["choice"]),
+            specific=float(a["specific"]["noul"]),
+        )
+    except (requests.RequestException, KeyError, ValueError, TypeError):
+        return None
