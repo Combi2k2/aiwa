@@ -34,6 +34,7 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/scoreboard/day.py` | A day's summary: deep minutes, streaks, time per activity, goal progress | minute entries → `DayScore` | `deep_threshold`, `[scoreboard]` | `test_scoreboard.py` |
 | `core/scoreboard/keeper.py` | Score only new minutes (fill in the day at start); today's score | now → saved minutes; `DayScore` | `[scoreboard] day_starts`, `daily_goal_minutes` | `test_scoreboard.py` |
 | `core/session.py` | Focus session behaviour: pokes while focus is low (build-up), "done?" then pokes (free), wrap-up reminders (50 min+), alarm when away | time, low focus?, away since → one `Action` | `[session]` | `test_session.py` |
+| `core/session.py` `LowAndNotRising` | "Low focus" in sessions: 2-min score below 0.35 and not rising (up > 0.05 vs. 30 s ago = recovering) | score, time → low? | `low_focus_below` | `test_session.py` |
 | `core/schedule.py` | Today's deep-work block (evening plan, else the default rhythm); when the warm-up / start reminders are due | day, plan → `Block`; now → `Reminder` | `[rhythm]` | `test_rhythm.py` |
 | `core/history.py` | Deep minutes per session; the chain of kept days | minute entries, outcomes → numbers | `kept_deep_minutes` | `test_rhythm.py` |
 | `core/rhythm.py` | Glue: today's block, today's sessions, chain length from stored data | store → blocks, sessions, chain | `[rhythm]` | `test_rhythm.py` |

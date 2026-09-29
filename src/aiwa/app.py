@@ -23,7 +23,7 @@ from aiwa.core.focus import moment
 from aiwa.core.sampling import SamplingSchedule
 from aiwa.core.scoreboard import ScoreKeeper
 from aiwa.core.scoreboard.day import day_bounds, summarize_day
-from aiwa.core.session import Action, BelowThreshold, FocusSession
+from aiwa.core.session import Action, FocusSession, LowAndNotRising
 from aiwa.core.openjev import Openjev, assess_task, classify_activity, is_todo, suggest_group
 from aiwa.core.quota import QuotaKeeper
 from aiwa.core.policy import NudgePolicy
@@ -92,7 +92,7 @@ class Aiwa:
             day_starts=config.day_starts,
         )
         self.quota = QuotaKeeper(self.store, config.quota, config.day_starts, config.focus.deep_threshold)
-        self.low_focus = BelowThreshold(config.low_focus_below)
+        self.low_focus = LowAndNotRising(config.low_focus_below)
         self.alarm = Alarm(config.alarm_sound, config.alarm_volume)
         self.session: FocusSession | None = None
         self.session_id: int | None = None
@@ -315,7 +315,7 @@ class Aiwa:
         if offline:
             return  # working offline, or just back from it: no focus checks this time
         short = moment(segments, now, SESSION_FOCUS_WINDOW, self.config.focus)
-        low = self.low_focus(short.intensity)
+        low = self.low_focus(short.intensity, now)
         if away_since is None and not low and self.alarm.ringing:
             self.alarm.stop()  # the user is back, and focused
         action = self.session.step(now, low, away_since)

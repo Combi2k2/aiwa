@@ -26,7 +26,7 @@ class FocusParams:
     # moment.py: below this share of active time, the window is mostly away → undefined
     min_active_share: float = 0.25
     # moment.py / period.py: window sizes; the middle one is the main score
-    horizons: tuple[timedelta, ...] = (timedelta(minutes=2), timedelta(minutes=10), timedelta(minutes=30))
+    horizons: tuple[timedelta, ...] = (timedelta(minutes=2), timedelta(minutes=5), timedelta(minutes=30))
     # period.py: a minute counts as deep when its main-horizon intensity is at least this
     deep_threshold: float = 0.6
 

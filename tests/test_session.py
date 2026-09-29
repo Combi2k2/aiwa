@@ -94,3 +94,21 @@ def test_counts_are_kept():
 def test_below_threshold():
     low = BelowThreshold(0.35)
     assert low(0.2) and not low(0.5) and not low(None)
+
+
+def test_low_focus_ignores_the_echo_of_a_distraction_while_focus_is_rising():
+    from datetime import datetime, timedelta, timezone
+
+    from aiwa.core.session import LowAndNotRising
+
+    t0 = datetime(2026, 9, 30, 10, tzinfo=timezone.utc)
+    low = LowAndNotRising(0.35)
+    step = lambda seconds, score: low(score, t0 + timedelta(seconds=seconds))
+    assert not step(0, 0.7)
+    assert step(15, 0.3)  # dropped to low
+    assert step(30, 0.1)  # still falling
+    assert step(45, 0.1)  # flat and low
+    assert not step(60, 0.2)  # back on task: the 2-min window still echoes the distraction, but it's rising
+    assert not step(75, 0.3)
+    assert step(120, 0.3)  # stuck low again: flat → low
+    assert not step(135, None)

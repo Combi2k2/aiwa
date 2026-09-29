@@ -295,3 +295,11 @@ Build order: morning start → routine questions → offline tasks → consisten
 - Then: "Looking at this week: what will you change next week?" (typed; kept and
   shown at the next review).
 - Sessions now record their goal group (the group of the last task started in them).
+
+## Decisions 2026-09-29: focus alarm and horizons
+- In sessions, "low focus" = the **2-minute** focus score below 0.35 **and not rising**.
+  Switching back from a distraction, the 2-min window still echoes the distraction; the
+  rising trend (up more than 0.05 vs. ~30 s earlier) shows the user is back → no poke,
+  and the alarm stops.
+- Deep minutes (scoreboard, quota, shutdown's focus weight) use a **5-minute** window
+  (was 10). Horizons: 2 / 5 / 30 min.

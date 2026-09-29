@@ -45,7 +45,7 @@ class SessionParams:
 
 
 class LowFocus(Protocol):
-    def __call__(self, intensity: float | None) -> bool: ...
+    def __call__(self, intensity: float | None, now: datetime) -> bool: ...
 
 
 @dataclass(frozen=True)
@@ -55,8 +55,36 @@ class BelowThreshold:
 
     threshold: float = 0.35
 
-    def __call__(self, intensity: float | None) -> bool:
+    def __call__(self, intensity: float | None, now: datetime | None = None) -> bool:
         return intensity is not None and intensity < self.threshold
+
+
+class LowAndNotRising:
+    """Low focus = the 2-min score below the threshold and not recovering.
+
+    Right after switching back from a distraction, the 2-minute window still
+    holds the distraction, so the score stays low for a while although the user
+    is back on track. Its rising trend shows that: compared with `lookback` ago,
+    up by more than `rise` → recovering, not low (no poke, the alarm stops).
+    """
+
+    def __init__(self, threshold: float = 0.35, rise: float = 0.05, lookback: timedelta = timedelta(seconds=30)):
+        self.threshold = threshold
+        self.rise = rise
+        self.lookback = lookback
+        self.history: list[tuple[datetime, float]] = []  # recent (time, score)
+
+    def rising(self, intensity: float, now: datetime) -> bool:
+        earlier = [score for t, score in self.history if now - t >= self.lookback]
+        return bool(earlier) and intensity - earlier[-1] > self.rise
+
+    def __call__(self, intensity: float | None, now: datetime) -> bool:
+        self.history = [(t, s) for t, s in self.history if now - t <= 3 * self.lookback]
+        if intensity is None:
+            return False
+        low = intensity < self.threshold and not self.rising(intensity, now)
+        self.history.append((now, intensity))
+        return low
 
 
 class FocusSession:

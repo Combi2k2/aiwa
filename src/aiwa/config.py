@@ -45,7 +45,7 @@ min_minutes_between = 20  # never interrupt more often than this
 
 [focus]
 # Focus intensity = depth × stability × continuity. See docs/components.md.
-horizons_minutes = [2, 10, 30]  # sliding-window sizes; the middle one is the main score
+horizons_minutes = [2, 5, 30]   # sliding-window sizes; the middle one is the main score (deep minutes)
 shallow_weight = 0.3            # depth: how much shallow time counts (deep 1, distraction 0)
 capacity = 5                    # stability: items a focused working set can hold
 dwell_scale_seconds = 20        # continuity: mean time per item that scores 0.63
@@ -102,7 +102,7 @@ alarm = true
 # Focus sessions are started and stopped from the tray; they have no fixed length.
 build_up_minutes = 25       # before this, a dip in focus gets a poke every minute
 wrap_up_minutes = 50        # after this, "time to wrap up" every 2 minutes until you stop
-low_focus_below = 0.35      # "low focus": 2-minute focus score below this
+low_focus_below = 0.35      # "low focus": 2-minute focus score below this (and not rising)
 away_alarm_minutes = 5      # away this long during a session → alarm, looping until you're back
 away_end_minutes = 10       # away this long → the session ends, as of when you left
 alarm_sound = ""            # path to a sound file (mp3/wav); empty = the built-in alarm clock
