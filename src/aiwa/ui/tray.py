@@ -22,6 +22,7 @@ class Tray:
         on_walk: Callable[[], None],
         on_grand: Callable[[], None],
         on_experiment: Callable[[], None],
+        on_sprint: Callable[[], None],
         on_rate: Callable[[], None],
         on_snooze: Callable[[], None],
         on_settings: Callable[[], None],
@@ -40,6 +41,7 @@ class Tray:
         self._session = self._add("Start focus session", on_session)
         self._add("Current task done → next", on_task_done)
         self._add("New task…", on_new_task)
+        self._add("Sprint (beat the clock)…", on_sprint)
         self._add("Thinking walk…", on_walk)
         self._add("Grand gesture…", on_grand)
         self._add("30-day test…", on_experiment)
@@ -81,10 +83,14 @@ class Tray:
             self._progress = progress
             self._icon.setIcon(scope_icon(progress))
 
-    def set_session(self, elapsed_minutes: int | None) -> None:
-        """None = no session running."""
+    def set_session(self, elapsed_minutes: int | None, countdown: str | None = None) -> None:
+        """None = no session running. `countdown`: a sprint's time left, shown instead."""
         if elapsed_minutes is None:
             self._session.setText("Start focus session")
+            self._icon.setToolTip("aiwa")
+        elif countdown:
+            self._session.setText(f"Stop sprint  ({countdown})")
+            self._icon.setToolTip(f"aiwa · sprint: {countdown}")
         else:
             self._session.setText(f"Stop focus session  ({elapsed_minutes} min)")
 

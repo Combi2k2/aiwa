@@ -32,7 +32,8 @@ KINDS: list[Kind] = [
     Kind("ide", "Code editor / IDE", "Writing and editing code", "Work tools", D),
     Kind("terminal", "Terminal", "Command line, shells", "Work tools", D),
     Kind("code_hosting", "Code hosting & review", "Repositories, pull requests, issues (e.g. GitHub, GitLab)", "Work tools", D),
-    Kind("ai_assistant", "AI assistant", "Chatting with an AI assistant (e.g. ChatGPT, Claude, Gemini)", "Work tools", D),
+    # "Tools": count as part of whatever the user is working on (core/interpret.py)
+    Kind("ai_assistant", "AI assistant", "Chatting with an AI assistant (e.g. ChatGPT, Claude, Gemini)", "Tools", D),
     Kind("docs_reference", "Documentation & reference", "Technical docs, manuals, API references, Q&A sites", "Work tools", D),
     Kind("writing", "Writing & documents", "Writing or editing documents, notes, papers (e.g. Word, Google Docs, Overleaf, Notion)", "Work tools", D),
     Kind("spreadsheets", "Spreadsheets & data", "Spreadsheets, data analysis, notebooks", "Work tools", D),
@@ -45,7 +46,7 @@ KINDS: list[Kind] = [
     Kind("video_calls", "Video calls", "Meetings and calls (e.g. Zoom, Meet)", "Contact", S),
     Kind("calendar", "Calendar", "Calendars and scheduling", "Contact", S),
     # learning & research
-    Kind("search_engine", "Search engine", "Web search (e.g. Google, Bing, DuckDuckGo)", "Learning & research", N),
+    Kind("search_engine", "Search engine", "Web search (e.g. Google, Bing, DuckDuckGo)", "Tools", N),
     Kind("research", "Research & papers", "Academic papers, journals, preprints, reading PDFs", "Learning & research", D),
     Kind("education", "Courses & education", "Online courses, lectures, university portals, learning platforms", "Learning & research", D),
     # leisure

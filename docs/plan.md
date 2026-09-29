@@ -397,3 +397,19 @@ Build order: morning start → routine questions → offline tasks → consisten
 - **Grand gesture** (tray → Grand gesture…): the one big thing + half day (4 h) / full day
   (8 h): a session with the wrap-up only at the end and breaks allowed (away alarm 20
   min, auto-end 45 min); at the end "what did you get done?" → a note.
+
+## Decisions 2026-09-29: kinds at work, reports, sprint, hub-and-spoke
+- **Watching is not away** (`core/interpret.py`, in `prepare`): away time right after a
+  video-streaming or video-call site counts as time on that site, with its category, up
+  to 3 h. Affects the scoreboard, shallow budget, absences, session away alarm.
+- **Tools** (new kind group: search engine, AI assistant) take the category of the work
+  just before them (within 10 min); switching still counts as switching.
+- **Most deep hours** (law of the vital few): top 3 deep sites/apps in the weekly review.
+- **Sprint** (Roosevelt): tray → Sprint…; deadline options with ⅔ of the task's estimate
+  first (min 10 min); countdown in the tray menu/tooltip; at the deadline the alarm rings:
+  Done (task done, session ends) / 5 more minutes / Stop.
+- **Hub-and-spoke**: in a session, 15 s on email / chat / a call → "… can wait until the
+  session is over", once per visit.
+- Noted: `aw-watcher-input` (keystroke/click counts) to tell reading from idle/watching.
+- Craftsman approach: approach proposed, not built (see the conversation of 2026-09-29).
+- Depth philosophies other than rhythmic: not now.

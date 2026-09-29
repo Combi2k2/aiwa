@@ -9,6 +9,7 @@ from datetime import timedelta
 from aiwa.config import UNTRACKED, CategoryRule, Config
 from aiwa.core.events import Category, Segment
 from aiwa.core.store import Store
+from aiwa.core.interpret import tools_take_context, watching_is_not_away
 from aiwa.core.timeline import BROWSER_APPS, merge
 
 
@@ -27,23 +28,36 @@ class Categorizer:
                 return rule.category
         return self.store.get_category(segment.key)
 
+    def kind(self, segment: Segment) -> str | None:
+        known = self.store.get_kind(segment.key)
+        return known[0] if known else None
+
 
 def prepare(segments: list[Segment], config: Config, categorizer: Categorizer) -> list[Segment]:
-    """Categorize every segment, then hide the names of untracked ones.
+    """Categorize every segment, apply what the kinds mean (core/interpret.py:
+    watching is not away, tools take their context), then hide the names of
+    untracked ones.
 
     Untracked activity keeps its category (so a distraction still counts as
     one) but loses its app name, title and URL.
     """
+    categorized = [s if s.away else replace(s, category=categorizer.categorize(s)) for s in segments]
+    kinds: dict[str, str | None] = {}
+
+    def kind_of(segment: Segment) -> str | None:
+        if not config.is_tracked(segment.app, segment.title, segment.url):
+            return None  # untracked: nothing is known about it
+        if segment.key not in kinds:
+            kinds[segment.key] = categorizer.kind(segment)
+        return kinds[segment.key]
+
+    interpreted = tools_take_context(watching_is_not_away(categorized, kind_of), kind_of)
     prepared = []
-    for segment in segments:
-        if segment.away:
+    for segment in interpreted:
+        if segment.away or config.is_tracked(segment.app, segment.title, segment.url):
             prepared.append(segment)
-            continue
-        category = categorizer.categorize(segment)
-        if config.is_tracked(segment.app, segment.title, segment.url):
-            prepared.append(replace(segment, category=category))
         else:
-            prepared.append(replace(segment, app=UNTRACKED, title="", url=None, category=category))
+            prepared.append(replace(segment, app=UNTRACKED, title="", url=None))
     return merge(prepared)
 
 

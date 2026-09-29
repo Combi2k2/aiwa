@@ -38,3 +38,30 @@ def test_grand_gesture_session_rules():
     p = grand_session(SessionParams(), 4)
     assert p.wrap_up == timedelta(hours=4) and p.away_alarm_after == timedelta(minutes=20)
     assert p.away_end_after == timedelta(minutes=45) and p.build_up == SessionParams().build_up
+
+
+def test_sprint_deadlines_are_tight_and_count_down():
+    from aiwa.core.sprint import Sprint, deadline_options
+
+    assert deadline_options(40) == [25, 15, 40]  # ⅔ of 40 → 25 first
+    assert deadline_options(15) == [10, 15, 25, 40]  # never under 10
+    assert deadline_options(None) == [15, 25, 40]
+    s = Sprint("Draft CV", 10, T0 + timedelta(minutes=25))
+    assert s.left(T0) == timedelta(minutes=25) and not s.due(T0)
+    assert s.due(T0 + timedelta(minutes=25))
+    s.asked = True
+    assert not s.due(T0 + timedelta(minutes=26))
+    s.extend(T0 + timedelta(minutes=26), 5)
+    assert s.due(T0 + timedelta(minutes=31))
+
+
+def test_hub_and_spoke_reminds_once_per_visit_in_sessions_only():
+    from aiwa.core.hub import HubWatch
+
+    watch = HubWatch()
+    mail = on("https://mail.google.com/")
+    step = lambda s, seg=mail, kind="email", session=True: watch.step(T0 + timedelta(seconds=s), seg, kind, session)
+    assert not step(0) and not step(10) and step(16) and not step(30)
+    step(32, on("https://github.com/"), "code_hosting")
+    assert not step(34) and step(50)  # a new visit
+    assert not any(step(s, session=False) for s in range(60, 120, 2))  # outside sessions: never

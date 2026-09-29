@@ -13,7 +13,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication
 
 from aiwa import platforms
-from aiwa.config import CONFIG_PATH, DATA_DIR, DB_PATH, Config
+from aiwa.config import CONFIG_PATH, DATA_DIR, DB_PATH, UNTRACKED, Config
 from aiwa.core.analyzer import Analyzer
 from aiwa.core.categories import Categorizer, prepare
 from aiwa.core.classifier import ClassificationLoop, Question
@@ -38,6 +38,9 @@ from aiwa.meditation_prompts import MeditationPrompts
 from aiwa.reminder_prompts import ReminderPrompts
 from aiwa.experiment_prompts import ExperimentPrompts, experiment_lines
 from aiwa.grand_prompts import GrandPrompts
+from aiwa.sprint_prompts import SprintPrompts
+from aiwa.core.sprint import Sprint
+from aiwa.core.hub import HubWatch
 from aiwa.core.grand import grand_session
 from aiwa.shutdown_prompts import ShutdownPrompts
 from aiwa.core.backlog import minutes_text
@@ -124,6 +127,7 @@ class Aiwa:
             on_walk=lambda: self.meditation.start(),
             on_grand=lambda: self.grand_prompts.start(),
             on_experiment=lambda: self.experiments.start(),
+            on_sprint=lambda: self.sprint_prompts.start(),
             on_rate=lambda: self.ask_focus("manual"),
             on_snooze=self.snooze_hour,
             on_settings=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(CONFIG_PATH))),
@@ -161,6 +165,10 @@ class Aiwa:
         self.grand_prompts = GrandPrompts(self.store, self.popup, self.start_grand,
                                           next_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
         self.grand: str | None = None  # the grand gesture's one thing, while one runs
+        self.sprint_prompts = SprintPrompts(self.popup, self.start_sprint,
+                                            next_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
+        self.sprint: Sprint | None = None
+        self.hub = HubWatch()
         self.meditation = MeditationPrompts(self.store, self.popup, self.start_walk,
                                             current_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
         self.shutdown = ShutdownPrompts(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
@@ -288,6 +296,7 @@ class Aiwa:
             chain=self.rhythm.chain(now), consistency=consistency_lines(self.consistency(now))[0],
             last_answer=last[1] if last else None, workdays=self.config.shutdown.days,
             shallow=(shallow, active), shallow_limit=self.config.shallow.limit,
+            top_deep=self.usage(Category.DEEP, week_from, now),  # the vital few
         ))
 
     def save_weekly_review(self, now: datetime, answer: str | None) -> None:
@@ -317,18 +326,57 @@ class Aiwa:
         self.start_session(params=grand_session(self.config.session, hours))
         self.grand = what
 
-    def distraction_candidates(self) -> list[tuple[str, int]]:
-        """Distraction sites/apps with minutes in the last week, most first (for the 30-day test)."""
-        now = datetime.now(timezone.utc)
+    def usage(self, category: Category, since: datetime, now: datetime) -> list[tuple[str, int]]:
+        """Sites/apps of a category with their minutes since `since`, most first."""
         try:
-            segments = prepare(self.collector.between(now - timedelta(days=7), now), self.config, self.categorizer)
+            segments = prepare(self.collector.between(since, now), self.config, self.categorizer)
         except OSError:
             return []
         minutes: dict[str, float] = {}
         for s in segments:
-            if not s.away and s.category is Category.DISTRACTION:
+            if not s.away and s.category is category and s.app != UNTRACKED:
                 minutes[s.key] = minutes.get(s.key, 0) + s.duration.total_seconds() / 60
         return sorted(((k, int(m)) for k, m in minutes.items() if m >= 1), key=lambda km: -km[1])
+
+    def distraction_candidates(self) -> list[tuple[str, int]]:
+        """Distraction sites/apps with minutes in the last week, most first (for the 30-day test)."""
+        now = datetime.now(timezone.utc)
+        return self.usage(Category.DISTRACTION, now - timedelta(days=7), now)
+
+    def start_sprint(self, task, title: str, minutes: int) -> None:
+        """A sprint: a session on one task with a tight deadline, counting down (core/sprint.py)."""
+        now = datetime.now(timezone.utc)
+        self.stop_session(now, quiet=True)
+        self.start_session(offer_task=False)
+        if task is not None:
+            self.tasks._set_current(task)
+        self.sprint = Sprint(title, task.id if task else None, now + timedelta(minutes=minutes))
+        self.tray.set_session(0, f"{minutes} min left")
+
+    def step_sprint(self, now: datetime) -> bool:
+        """Countdown in the tray; at the deadline, "time's up" (rings). True while it's asking."""
+        if self.sprint is None:
+            return False
+        left = int(self.sprint.left(now).total_seconds() // 60) + (1 if self.sprint.left(now).seconds % 60 else 0)
+        self.tray.set_session(int(self.session.elapsed(now).total_seconds() // 60),
+                              f"{left} min left · {self.sprint.title}")
+        if not self.sprint.due(now):
+            return self.sprint.asked
+        self.sprint.asked = True
+        self.alarm.start()
+        self.sprint_prompts.times_up(self.sprint.title, self.on_sprint_answer)
+        return True
+
+    def on_sprint_answer(self, answer: str) -> None:
+        self.alarm.stop()
+        now = datetime.now(timezone.utc)
+        if answer == "more" and self.sprint is not None:
+            self.sprint.extend(now, self.sprint_prompts.params.extension)
+            return
+        if answer == "done" and self.sprint is not None and self.sprint.task_id is not None:
+            self.store.set_task_status(self.sprint.task_id, "done", now)
+            self.tasks.refresh()
+        self.stop_session(now)
 
     def start_walk(self, walk) -> None:
         """A thinking walk: a session on the walk as an offline task (core/meditation.py)."""
@@ -343,6 +391,7 @@ class Aiwa:
         counts = {action.value: n for action, n in self.session.counts.items()}
         started, walking = self.session.started_at, is_walk(self.tasks.current_task)
         grand, self.grand = self.grand, None
+        self.sprint = None
         self.store.end_session(self.session_id, now, counts, ended_by)
         self.session = self.session_id = None
         self.offline.reset()
@@ -373,6 +422,8 @@ class Aiwa:
             return
         minutes = int(self.session.elapsed(now).total_seconds() // 60)
         self.tray.set_session(minutes)
+        if self.step_sprint(now):
+            return  # time's up is showing: no other session prompts meanwhile
         latest = max(segments, key=lambda s: s.end) if segments else None
         if latest is None or now - latest.end > NO_DATA_AFTER:
             # no recent data: the Mac slept or ActivityWatch stopped; count it as away
@@ -491,6 +542,11 @@ class Aiwa:
         # after the workday is shut down, no more work questions
         self.capture.step(now, current, category, in_session=in_session or self.shutdown.done_today(now))
         self.experiments.step(now, current)
+        kind = self.categorizer.kind(current) if current is not None and not current.away else None
+        if self.hub.step(now, current, kind, in_session) and not self.popup.isVisible():
+            self.popup.ask(f"{kinds.label(kind)} can wait until the session is over (hub and spoke: "
+                           "collaboration outside deep work).", self.on_session_answer,
+                           [("Back to work", "ok"), ("Stop session", "stop")])
         self.shutdown.step(now, in_session)
         if question and not self.popup.isVisible():
             self.ask(question)

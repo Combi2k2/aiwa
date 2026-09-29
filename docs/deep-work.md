@@ -16,6 +16,7 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
 
 ## Core ideas
 
+  *(noted 2026-09-29 as promising: would tell reading from idle/watching better than the 3-min AFK timer; not set up yet)*
 - [x] **Deep vs. shallow work**
   → classify every stretch of activity as deep or shallow (via categories + sessions)
 - [ ] **Deep work hypothesis** (valuable, rare, meaningful)
@@ -38,12 +39,15 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
 - [x] **Grand gesture**
   → optional "big session" mode: long block, strict allowlist, all nudges but blockers off
   *(built 2026-09-29: tray → Grand gesture…; one long session (4 h / 8 h), wrap-up only at the end, breaks allowed (alarm 20 min, end 45 min); outcome kept as a note)*
-- [ ] **Hub-and-spoke collaboration**
+- [x] **Hub-and-spoke collaboration**
   → separate "collaboration" and "solo" blocks; don't nudge about Slack during collaboration
-- [ ] **4DX 1: Focus on the wildly important**
+  *(built 2026-09-29: in a session, 15 s on email / chat / a call → "can wait until the session is over", once per visit)*
+- [x] **4DX 1: Focus on the wildly important**
   → user sets 1–2 goals; sessions are tagged with the goal they serve
-- [ ] **4DX 2: Act on lead measures**
+  *(covered: goal groups with priorities; each session works on one group)*
+- [x] **4DX 2: Act on lead measures**
   → track deep hours per goal (a lead measure), not outcomes
+  *(covered: deep hours per day (quota) and per goal group (weekly review))*
 - [x] **4DX 3: Keep a compelling scoreboard**
   → tray shows today's deep hours; simple daily/weekly chart
 - [x] **4DX 4: Cadence of accountability**
@@ -51,8 +55,9 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   *(built 2026-09-29: in the last workday's shutdown ritual; deep work per day vs. the
   daily goal, per goal group with its priority, chain, consistency, last week's answer;
   "what will you change next week?")*
-- [ ] **Be lazy (real downtime)**
+- [~] **Be lazy (real downtime)**
   → after the workday ends, stop work nudges; flag work apps opened late in the evening
+  *(partly: no capture questions after the shutdown; evening wind-down. Not built: flagging work apps late in the evening)*
 - [x] **Shutdown ritual**
   → end-of-day popup: review inbox, park open loops for tomorrow, say "done"
   *(built 2026-09-29: 18:00 on weekdays; today's notes → task or note, what's on your
@@ -65,8 +70,9 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   → user schedules internet/distraction blocks; nudge when distraction apps are used outside them
 - [ ] **Don't fill every lull**
   → detect "short idle → distraction app" pattern; gentle check-in, not a block
-- [ ] **Work like Roosevelt** (short, intense deadlines)
+- [x] **Work like Roosevelt** (short, intense deadlines)
   → "sprint" session: user picks a task and a tight deadline; countdown in tray
+  *(built 2026-09-29: tray → Sprint…; tight deadline (⅔ of the estimate first), countdown in the tray, "time's up" rings: done / 5 more / stop)*
 - [x] **Productive meditation**
   → after a long session, suggest a walk with one problem to think about; ask for the result afterwards
   *(built 2026-09-29: thinking walk after good sessions or from the tray; counts as offline deep work; the outcome is kept as a note)*
@@ -77,8 +83,9 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
 
 - [ ] **Craftsman approach to tools**
   → weekly report per app/site: time spent vs. whether the user marked it as serving a goal
-- [ ] **Law of the vital few**
+- [x] **Law of the vital few**
   → show which few activities produce most of the deep hours
+  *(built 2026-09-29: "Most deep hours" in the weekly review: top 3 deep sites/apps)*
 - [x] **30-day test**
   → user picks a service to quit for 30 days; aiwa tracks slips and asks the two questions at the end
   *(built 2026-09-29: tray → 30-day test…; slips = 10 s on it per visit, reminder with Close it; Newport's two questions on day 30; two noes → quit for good)*
@@ -94,8 +101,9 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
 - [x] **Shallow-work budget**
   → user sets a percentage; tray warns when shallow time exceeds it
   *(built 2026-09-29: soft limit 30%, sampled prompts; tray and weekly review)*
-- [ ] **Fixed-schedule productivity**
+- [x] **Fixed-schedule productivity**
   → user sets a workday end; shutdown ritual triggers then
+  *(covered: the shutdown ritual at the workday end)*
 - [ ] **Become hard to reach**
   → batch Slack/mail into scheduled windows; small-task inbox collects what comes up in between
 - [ ] **Make senders do more work / process-centric email**
