@@ -23,7 +23,8 @@ from aiwa.core.focus import moment
 from aiwa.core.sampling import SamplingSchedule
 from aiwa.core.scoreboard import ScoreKeeper
 from aiwa.core.scoreboard.day import day_bounds, summarize_day
-from aiwa.core.session import Action, FocusSession, LowAndNotRising
+from aiwa.core.rules.focus import LowAndNotRising
+from aiwa.core.session import Action, FocusSession
 from aiwa.core.openjev import Openjev, assess_task, classify_activity, is_todo, suggest_group
 from aiwa.core.quota import QuotaKeeper
 from aiwa.core.policy import NudgePolicy

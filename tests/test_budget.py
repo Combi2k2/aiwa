@@ -1,7 +1,8 @@
 import random
 from datetime import datetime, timedelta, timezone
 
-from aiwa.core.budget import BudgetRule, ShallowBudget, ShallowShare, shallow_share
+from aiwa.core.budget import ShallowBudget, ShallowShare, shallow_share
+from aiwa.core.rules.budget import BudgetRule
 
 T0 = datetime(2026, 9, 30, 14, tzinfo=timezone.utc)
 
@@ -12,7 +13,9 @@ def test_share_of_active_time():
 
 
 def test_chance_is_soft_around_the_limit():
-    rule = BudgetRule()
+    from aiwa.core.budget import BudgetParams
+
+    rule = BudgetRule(BudgetParams())
     chance = lambda share: round(rule.chance(ShallowShare(int(share * 300), 300)), 2)
     assert chance(0.30) == 0.5
     assert chance(0.20) == 0.12 and chance(0.25) == 0.27 and chance(0.35) == 0.73 and chance(0.40) == 0.88

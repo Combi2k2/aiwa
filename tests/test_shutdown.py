@@ -1,7 +1,8 @@
 from datetime import date, datetime, time, timedelta
 
 from aiwa.core.offtime import OffTimeParams, near, off_time, often_missed
-from aiwa.core.shutdown import LowFocusRule, ShiftContext, ShutdownParams, TimeRule, shift_ending, workday
+from aiwa.core.rules.shutdown import LowFocusRule, ShiftContext, TimeRule, shift_ending
+from aiwa.core.shutdown import ShutdownParams, workday
 
 TUESDAY, SATURDAY = date(2026, 9, 29), date(2026, 10, 3)
 P = ShutdownParams()

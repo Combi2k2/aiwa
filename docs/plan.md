@@ -335,7 +335,7 @@ Build order: morning start → routine questions → offline tasks → consisten
 - "Around 12:30 is usually time for a meal. Time for it now?" → Going now / Later /
   Skip today (Going now and Skip today: no more reminders for it today).
 
-## Decisions 2026-09-29: rules as one abstraction (`core/rule.py`)
+## Decisions 2026-09-29: rules as one abstraction (`core/rules/`)
 - A rule = a quantity (`measure(context)`) against a **threshold**, with a **softness**
   (width of the S-curve; 0 = hard), a **direction** (above/below), a **range** (where
   it's active at all; `active(context)` for conditions beyond the quantity), and
@@ -353,5 +353,7 @@ Build order: morning start → routine questions → offline tasks → consisten
   - routine reminders: share of past days already started, threshold 0.5, softness 0.2;
   - capture: time on a shallow visit ≥ 15 s, in distraction ≥ 5 min (hard);
   - thinking-walk suggestion: session deep minutes, threshold 35, softness 8, from 25.
+- Layout: `core/rules/base.py` (the abstraction) and one module per rule in `core/rules/`;
+  the feature modules keep their params and use the rules (never the other way round).
 - Still plain hard checks inside the session state machine: away alarm (5 min), auto-end
   (10 min), wrap-up (50 min), and the offline grace.

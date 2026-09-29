@@ -19,7 +19,7 @@ import random
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
-from aiwa.core.rule import Cadence, Rule, RuleParams
+from aiwa.core.rules.base import Cadence
 
 DAY = 24 * 60
 
@@ -104,26 +104,13 @@ def done_today(slot: Slot, today: list[tuple[datetime, datetime, str | None]], d
     return False
 
 
-@dataclass(frozen=True)
-class SlotNow:
-    slot: Slot
-    now: datetime
-    day_starts: time
-
-
-class ReminderRule(Rule[SlotNow]):
-    def __init__(self, params: ReminderParams = ReminderParams(), rng: random.Random | None = None):
-        super().__init__(RuleParams(threshold=params.threshold, softness=params.softness, range=(1e-9, None)), rng)
-
-    def measure(self, c: SlotNow) -> float:
-        return started_share(c.slot, c.now, c.day_starts)
-
-
 class RoutineReminders:
     """Every `check_every`, samples whether to remind about each routine not done yet today."""
 
     def __init__(self, params: ReminderParams = ReminderParams(), rng: random.Random | None = None):
         self.params = params
+        from aiwa.core.rules.reminder import ReminderRule
+
         self.rule = ReminderRule(params, rng)
         self.cadence = Cadence(params.check_every)
         self.settled: dict[str, date] = {}  # slot key → day it was reminded / skipped
@@ -136,7 +123,7 @@ class RoutineReminders:
         for slot in slots:
             if self.settled.get(slot.key()) == day or done_today(slot, today, day_starts, self.params):
                 continue
-            if self.rule.decide(SlotNow(slot, now, day_starts)):
+            if self.rule.decide(self.rule.context(slot, now, day_starts)):
                 return slot
         return None
 

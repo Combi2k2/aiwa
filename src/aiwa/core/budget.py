@@ -12,7 +12,7 @@ import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from aiwa.core.rule import Cadence, Rule, RuleParams
+from aiwa.core.rules.base import Cadence
 
 AWAY = {"away"}
 
@@ -40,22 +40,12 @@ def shallow_share(minutes_by_activity: dict[str, int]) -> ShallowShare:
     return ShallowShare(minutes_by_activity.get("shallow", 0), active)
 
 
-class BudgetRule(Rule[ShallowShare]):
-    def __init__(self, params: BudgetParams = BudgetParams(), rng: random.Random | None = None):
-        super().__init__(RuleParams(threshold=params.limit, softness=params.softness), rng)
-        self.min_active = params.min_active.total_seconds() / 60
-
-    def measure(self, today: ShallowShare) -> float:
-        return today.share
-
-    def active(self, today: ShallowShare) -> bool:
-        return today.active >= self.min_active
-
-
 class ShallowBudget:
     """Every `check_every`, samples whether to mention the budget."""
 
     def __init__(self, params: BudgetParams = BudgetParams(), rng: random.Random | None = None):
+        from aiwa.core.rules.budget import BudgetRule
+
         self.rule = BudgetRule(params, rng)
         self.cadence = Cadence(params.check_every)
 

@@ -1,7 +1,7 @@
 import random
 from datetime import datetime, timedelta, timezone
 
-from aiwa.core.rule import AllOf, Cadence, Rule, RuleParams, chance_at
+from aiwa.core.rules.base import AllOf, Cadence, Rule, RuleParams, chance_at
 
 
 def test_soft_threshold_is_50_percent_at_the_line():

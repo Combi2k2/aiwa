@@ -13,7 +13,7 @@ import random
 from dataclasses import dataclass
 
 from aiwa.core.backlog import Task
-from aiwa.core.rule import Rule, RuleParams
+from aiwa.core.rules.walk import SuggestWalk
 
 WALK_TASK_ID = -1  # not in the backlog
 
@@ -24,17 +24,6 @@ class MeditationParams:
     softness: float = 8  # 25 min → 22%, 50 min → 87%
     min_deep_minutes: int = 25  # the rule's range: never after a session with less
     lengths: tuple[int, ...] = (15, 30, 45)  # minutes to choose from
-
-
-class SuggestWalk(Rule[int]):
-    """After a session: suggest a walk? The better the session, the more likely (core/rule.py)."""
-
-    def __init__(self, params: MeditationParams, rng: random.Random | None = None):
-        super().__init__(RuleParams(threshold=params.threshold, softness=params.softness,
-                                    range=(params.min_deep_minutes, None)), rng)
-
-    def measure(self, session_deep_minutes: int) -> float:
-        return session_deep_minutes
 
 
 def should_suggest(session_deep_minutes: int, params: MeditationParams, rng: random.Random) -> bool:

@@ -14,7 +14,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from aiwa.core.events import Category, Segment
-from aiwa.core.rule import Rule, RuleParams
+from aiwa.core.rules.base import RuleParams
+from aiwa.core.rules.capture import TimeOnIt
 
 
 @dataclass(frozen=True)
@@ -44,13 +45,6 @@ class Source:
         if self.url:
             return segment.url == self.url
         return segment.app == self.app and segment.title == self.title
-
-
-class TimeOnIt(Rule[timedelta]):
-    """Time spent on something, in seconds, against a threshold (core/rule.py)."""
-
-    def measure(self, spent: timedelta) -> float:
-        return spent.total_seconds()
 
 
 class CaptureWatch:

@@ -34,7 +34,7 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/scoreboard/day.py` | A day's summary: deep minutes, streaks, time per activity, goal progress | minute entries → `DayScore` | `deep_threshold`, `[scoreboard]` | `test_scoreboard.py` |
 | `core/scoreboard/keeper.py` | Score only new minutes (fill in the day at start); today's score | now → saved minutes; `DayScore` | `[scoreboard] day_starts`, `daily_goal_minutes` | `test_scoreboard.py` |
 | `core/session.py` | Focus session behaviour: pokes while focus is low (build-up), "done?" then pokes (free), wrap-up reminders (50 min+), alarm when away | time, low focus?, away since → one `Action` | `[session]` | `test_session.py` |
-| `core/session.py` `LowAndNotRising` | "Low focus" in sessions: 2-min score below 0.35 and not rising (up > 0.05 vs. 30 s ago = recovering) | score, time → low? | `low_focus_below` | `test_session.py` |
+| `core/rules/focus.py` `LowAndNotRising` | "Low focus" in sessions: 2-min score below 0.35 and not rising (up > 0.05 vs. 30 s ago = recovering) | score, time → low? | `low_focus_below` | `test_session.py` |
 | `core/schedule.py` | Today's deep-work block (evening plan, else the default rhythm); when the warm-up / start reminders are due | day, plan → `Block`; now → `Reminder` | `[rhythm]` | `test_rhythm.py` |
 | `core/history.py` | Deep minutes per session; the chain of kept days | minute entries, outcomes → numbers | `kept_deep_minutes` | `test_rhythm.py` |
 | `core/rhythm.py` | Glue: today's block, today's sessions, chain length from stored data | store → blocks, sessions, chain | `[rhythm]` | `test_rhythm.py` |
@@ -58,7 +58,8 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/offtime.py` | The usual off time (peak of the starts of 3+ h absences); near it?; wrap-ups often missed? | absence starts → time | `OffTimeParams` | `test_shutdown.py` |
 | `shutdown_prompts.py` | Offers the ritual (shift ending, session ended near the off time, the wrap-up alarm), offers the alarm when often missed; runs the steps one at a time; "done today" stops capture | — | — | manual |
 | `core/weekly.py` | The weekly review: when it's due (last workday, or after a missed one) and its text | week's deep minutes, goal groups, chain, consistency → text | — | `test_weekly.py` |
-| `core/rule.py` | The rule abstraction: quantity vs. soft threshold (threshold, softness, direction, range, steps) → chance → sampled decision; `AllOf`, `Cadence` | context → chance / fire? | per rule | `test_rule.py` |
+| `core/rules/base.py` | The rule abstraction: quantity vs. soft threshold (threshold, softness, direction, range, steps) → chance → sampled decision; `AllOf`, `Cadence` | context → chance / fire? | per rule | `test_rule.py` |
+| `core/rules/*.py` | One rule per file: `budget` (shallow share), `shutdown` (time × low focus), `focus` (low focus in sessions, not rising), `absence` (ask "what did you do?"), `reminder` (routine reminders), `capture` (time on shallow / distraction), `walk` (suggest a thinking walk) | per rule | params next to the feature (`BudgetParams`, `ShutdownParams`, …) | per feature |
 | `core/budget.py` | Shallow-work budget: shallow share of active time; soft threshold, prompt sampled with a chance rising with the overshoot | minutes by activity → share; share → prompt? | `[shallow]`, `BudgetParams` | `test_budget.py` |
 | `core/meditation.py` | Productive meditation: when to suggest a thinking walk; the walk as an offline task | session deep minutes → suggest?; problem, minutes → `Task` | `MeditationParams` | `test_meditation.py` |
 | `meditation_prompts.py` | The walk popups: suggestion, problem, length, "what did you figure out?" (a note) | — | — | manual |

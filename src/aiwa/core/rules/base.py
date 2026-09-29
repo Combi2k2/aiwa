@@ -1,4 +1,4 @@
-"""Rules: a measured quantity against a soft threshold.
+"""The rule abstraction: a measured quantity against a soft threshold.
 
 Almost everything aiwa decides ("prompt now?", "is focus low?") is a quantity
 against a threshold. A rule:
