@@ -78,3 +78,8 @@ def test_absences_round_trip(tmp_path):
     store.set_absence_activity(absence_id, "meal", "user")
     ((start, end, activity, source),) = store.absences()
     assert (end - start, activity, source) == (timedelta(minutes=40), "meal", "user")
+
+
+def test_always_ask_for_trying_it_out():
+    tracker = AbsenceTracker(random.Random(1), always_ask=True)
+    assert all(tracker.should_ask(Absence(at(0), at(6))) for _ in range(20))

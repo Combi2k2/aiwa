@@ -76,6 +76,10 @@ minutes = 90
 planning_time = "21:30"      # when to ask "anything new to take care of?"
 kept_deep_minutes = 25       # a block is kept (chain +1) with this much deep work in a session in it
 
+[routines]
+# After an absence aiwa sometimes asks what it was (more often for longer ones).
+always_ask = false   # true: ask about every absence of 5+ minutes (for trying it out)
+
 [bedtime]
 # An anchor for sleep, every night: from wind_down a reminder every 5 minutes while you're
 # active ("10 more minutes" once per night); from hard_stop the alarm rings while you're
@@ -198,6 +202,7 @@ class Config:
     day_starts: time = time(4, 0)
     rhythm: RhythmParams = field(default_factory=RhythmParams)
     bedtime: BedtimeParams = field(default_factory=BedtimeParams)
+    routines_always_ask: bool = False
     ai_enabled: bool = True
     ai: AISettings = field(default_factory=AISettings)
     gemini_api_key: str | None = None
@@ -261,6 +266,7 @@ def parse(raw: dict) -> Config:
         day_starts=time.fromisoformat(raw.get("scoreboard", {}).get("day_starts", "04:00")),
         rhythm=parse_rhythm(raw.get("rhythm", {})),
         bedtime=parse_bedtime(raw.get("bedtime", {})),
+        routines_always_ask=raw.get("routines", {}).get("always_ask", False),
         ai_enabled=raw.get("ai", {}).get("enabled", True),
         ai=AISettings(
             model=raw.get("ai", {}).get("model", AISettings.model),

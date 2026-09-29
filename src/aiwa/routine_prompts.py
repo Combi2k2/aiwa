@@ -18,12 +18,12 @@ STALE = timedelta(minutes=30)  # a question not asked within this long (popup bu
 
 
 class RoutinePrompts:
-    def __init__(self, store: Store, popup: Popup, bedtime: time, day_starts: time):
+    def __init__(self, store: Store, popup: Popup, bedtime: time, day_starts: time, always_ask: bool = False):
         self.store = store
         self.popup = popup
         self.bedtime = bedtime
         self.day_starts = day_starts
-        self.tracker = AbsenceTracker()
+        self.tracker = AbsenceTracker(always_ask=always_ask)
         self.pending: tuple[int, Absence] | None = None  # waiting for the popup to be free
 
     def step(self, now: datetime, active: bool) -> None:

@@ -86,9 +86,10 @@ def overnight(absence: Absence, bedtime: time, day_starts: time) -> bool:
 class AbsenceTracker:
     """Turns "is the user active now?" (checked every few seconds) into finished absences."""
 
-    def __init__(self, rng: random.Random | None = None):
+    def __init__(self, rng: random.Random | None = None, always_ask: bool = False):
         self.last_active: datetime | None = None
         self.rng = rng or random.Random()
+        self.always_ask = always_ask  # for trying it out: ask about every absence of 5+ minutes
 
     def step(self, now: datetime, active: bool) -> Absence | None:
         """Call regularly; returns an absence when the user comes back from one."""
@@ -100,4 +101,6 @@ class AbsenceTracker:
         return None
 
     def should_ask(self, absence: Absence) -> bool:
+        if self.always_ask:
+            return absence.duration >= MIN_ABSENCE
         return self.rng.random() < ask_probability(absence.duration)

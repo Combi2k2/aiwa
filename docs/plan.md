@@ -215,3 +215,7 @@ by hand before the AI planner exists, or wait for it?
   a session next time.
 
 Build order: morning start → routine questions → offline tasks → consistency line.
+
+- **Routine answers (update):** the user will *type* what they did, and openjev classifies
+  it into the taxonomy; these questions will move into an inbox-style interface later
+  (interfaces come after the data work). The current popup with fixed options is interim.

@@ -127,7 +127,8 @@ class Aiwa:
             todays_work=self.todays_work,
             request_session=lambda: self.tasks.request_session(self.start_session),
         )
-        self.routines = RoutinePrompts(self.store, self.popup, config.bedtime.wind_down, config.day_starts)
+        self.routines = RoutinePrompts(self.store, self.popup, config.bedtime.wind_down, config.day_starts,
+                                       always_ask=config.routines_always_ask)
         self.prompts = RhythmPrompts(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
             request_session=lambda: self.tasks.request_session(self.start_session),
