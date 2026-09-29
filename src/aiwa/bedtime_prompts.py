@@ -1,5 +1,5 @@
 """The evening wind-down in the running app: pokes, "10 more minutes", the alarm,
-and a simple sleep log (last activity at night, first activity in the morning).
+and when the user stopped last night / started this morning (from the minute ledger).
 
 The rules live in core/bedtime.py; this module shows popups and rings the alarm.
 """
@@ -27,8 +27,6 @@ class BedtimePrompts:
         self.wind_down = WindDown(params, day_starts)
 
     def step(self, now: datetime, active: bool) -> None:
-        if active:
-            self._log(now)
         action = self.wind_down.step(now, active)
         local = now.astimezone()
         if action is Action.POKE:
@@ -56,19 +54,17 @@ class BedtimePrompts:
         elif response == "lock":
             self.lock_screen()
 
-    # --- sleep log -------------------------------------------------------------------------
-
-    def _log(self, now: datetime) -> None:
-        day = self.today(now).isoformat()
-        self.store.set_state(f"last_active:{day}", now.isoformat())
-        if self.store.get_state(f"first_active:{day}") is None:
-            self.store.set_state(f"first_active:{day}", now.isoformat())
+    # --- last night ------------------------------------------------------------------------
 
     def last_night(self, now: datetime) -> tuple[datetime | None, datetime | None]:
-        """(last activity of the previous day, first activity today)."""
+        """(last active minute of the previous day, first active minute today), from the
+        minute ledger, which is filled from ActivityWatch's history even when aiwa wasn't running."""
         from datetime import timedelta
 
-        today = self.today(now)
-        off = self.store.get_state(f"last_active:{(today - timedelta(days=1)).isoformat()}")
-        up = self.store.get_state(f"first_active:{today.isoformat()}")
-        return (datetime.fromisoformat(off) if off else None, datetime.fromisoformat(up) if up else None)
+        from aiwa.core.scoreboard.day import day_bounds
+
+        _, start, end = day_bounds(now, self.day_starts)
+        active = lambda entries: [e.minute for e in entries if e.activity not in (None, "away")]
+        yesterday = active(self.store.minutes(start - timedelta(days=1), start))
+        today = active(self.store.minutes(start, end))
+        return (yesterday[-1] + timedelta(minutes=1) if yesterday else None, today[0] if today else None)
