@@ -36,6 +36,9 @@ from aiwa.bedtime_prompts import BedtimePrompts
 from aiwa.capture_prompts import CapturePrompts
 from aiwa.meditation_prompts import MeditationPrompts
 from aiwa.reminder_prompts import ReminderPrompts
+from aiwa.experiment_prompts import ExperimentPrompts, experiment_lines
+from aiwa.grand_prompts import GrandPrompts
+from aiwa.core.grand import grand_session
 from aiwa.shutdown_prompts import ShutdownPrompts
 from aiwa.core.backlog import minutes_text
 from aiwa.core.budget import ShallowBudget, shallow_share
@@ -119,6 +122,8 @@ class Aiwa:
             on_new_task=lambda: self.tasks.new_task(),
             on_task_done=lambda: self.tasks.task_done(),
             on_walk=lambda: self.meditation.start(),
+            on_grand=lambda: self.grand_prompts.start(),
+            on_experiment=lambda: self.experiments.start(),
             on_rate=lambda: self.ask_focus("manual"),
             on_snooze=self.snooze_hour,
             on_settings=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(CONFIG_PATH))),
@@ -152,6 +157,10 @@ class Aiwa:
         self.capture = CapturePrompts(self.store, self.popup, self.tasks,
                                       (lambda note: is_todo(openjev, note)) if openjev else None)
         self.reminder_prompts = ReminderPrompts(self.store, self.popup, config.day_starts)
+        self.experiments = ExperimentPrompts(self.store, self.popup, self.rhythm.today, self.distraction_candidates)
+        self.grand_prompts = GrandPrompts(self.store, self.popup, self.start_grand,
+                                          next_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
+        self.grand: str | None = None  # the grand gesture's one thing, while one runs
         self.meditation = MeditationPrompts(self.store, self.popup, self.start_walk,
                                             current_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
         self.shutdown = ShutdownPrompts(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
@@ -207,6 +216,7 @@ class Aiwa:
         self.routines.step(now, active, away_since=latest.start if latest is not None and latest.away else None,
                            in_focus=latest)
         self.reminder_prompts.step(now, active, in_session=self.session is not None)
+        self.experiments.check_due(now, active)
         self.update_scoreboard(now)
         self.capture.refresh()
         focus = moment(segments, now, self.config.focus.main_horizon, self.config.focus).intensity
@@ -289,16 +299,36 @@ class Aiwa:
         else:
             self.tasks.request_session(self.start_session)  # offers to add a task if the list is empty
 
-    def start_session(self, offer_task: bool = True) -> None:
+    def start_session(self, offer_task: bool = True, params=None) -> None:
+        """`params`: session rules other than the usual (a grand gesture)."""
         if self.session:
             return
         now = datetime.now(timezone.utc)
         self.session_id = self.store.start_session(now)
-        self.session = FocusSession(now, self.config.session)
+        self.session = FocusSession(now, params or self.config.session)
         self.session_checked = now
         self.tray.set_session(0)
         if offer_task:
             self.tasks.start_session()  # pick a goal group, hand over its first task
+
+    def start_grand(self, what: str, hours: int) -> None:
+        """A grand gesture: one long session on one thing, relaxed rules (core/grand.py)."""
+        self.stop_session(datetime.now(timezone.utc), quiet=True)
+        self.start_session(params=grand_session(self.config.session, hours))
+        self.grand = what
+
+    def distraction_candidates(self) -> list[tuple[str, int]]:
+        """Distraction sites/apps with minutes in the last week, most first (for the 30-day test)."""
+        now = datetime.now(timezone.utc)
+        try:
+            segments = prepare(self.collector.between(now - timedelta(days=7), now), self.config, self.categorizer)
+        except OSError:
+            return []
+        minutes: dict[str, float] = {}
+        for s in segments:
+            if not s.away and s.category is Category.DISTRACTION:
+                minutes[s.key] = minutes.get(s.key, 0) + s.duration.total_seconds() / 60
+        return sorted(((k, int(m)) for k, m in minutes.items() if m >= 1), key=lambda km: -km[1])
 
     def start_walk(self, walk) -> None:
         """A thinking walk: a session on the walk as an offline task (core/meditation.py)."""
@@ -312,6 +342,7 @@ class Aiwa:
             return
         counts = {action.value: n for action, n in self.session.counts.items()}
         started, walking = self.session.started_at, is_walk(self.tasks.current_task)
+        grand, self.grand = self.grand, None
         self.store.end_session(self.session_id, now, counts, ended_by)
         self.session = self.session_id = None
         self.offline.reset()
@@ -320,6 +351,10 @@ class Aiwa:
         self.tray.set_session(None)
         if self.popup.isVisible():
             self.popup.hide()
+        if grand is not None and not quiet:  # the grand gesture is over: what got done?
+            self.grand_prompts.finished(grand, deep_minutes(self.store.minutes(started, now), started, now,
+                                                            self.config.focus.deep_threshold))
+            return
         if ended_by == "user" and not quiet:
             self.shutdown.session_ended(now)  # near the usual off time: wrap up the day?
             if not walking:  # after a good session, sometimes: a thinking walk?
@@ -331,7 +366,7 @@ class Aiwa:
             return
         last_check, self.session_checked = self.session_checked, now
         task = self.tasks.current_task
-        slept = last_check and now - last_check >= self.config.session.away_end_after
+        slept = last_check and now - last_check >= self.session.params.away_end_after
         if slept and not (task and task.offline):
             # aiwa didn't run for a while (the Mac slept): the session ended back then
             self.stop_session(last_check, ended_by="away")
@@ -418,6 +453,7 @@ class Aiwa:
             + budget_lines(shallow, self.config.shallow.limit)
             + rhythm_lines(self.prompts.todays_block(now), now, self.rhythm.chain(now), self.rhythm.todays_sessions(now))
             + consistency_lines(self.consistency(now))
+            + experiment_lines(self.store.experiments(("running",)), self.rhythm.today(now))
             + task_lines(group, task, self.store.tasks_done_between(day_start, day_end))
             + sleep_lines(*self.bedtime.last_night(now))
         )
@@ -454,6 +490,7 @@ class Aiwa:
         in_session = self.session is not None
         # after the workday is shut down, no more work questions
         self.capture.step(now, current, category, in_session=in_session or self.shutdown.done_today(now))
+        self.experiments.step(now, current)
         self.shutdown.step(now, in_session)
         if question and not self.popup.isVisible():
             self.ask(question)

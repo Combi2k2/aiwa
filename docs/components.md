@@ -59,6 +59,10 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `shutdown_prompts.py` | Offers the ritual (shift ending, session ended near the off time, the wrap-up alarm), offers the alarm when often missed; runs the steps one at a time; "done today" stops capture | — | — | manual |
 | `core/weekly.py` | The weekly review: when it's due (last workday, or after a missed one) and its text | week's deep minutes, goal groups, chain, consistency → text | — | `test_weekly.py` |
 | `core/kinds.py` | What a site/app is (26 kinds in 5 groups + "something else"), each with a description for openjev and a default category | kind → label, default category | the list itself | `test_classifier.py` |
+| `core/experiment.py` | The 30-day test: days, due?, verdict (two noes → quit), slips (10 s per visit, `TimeOnIt`) | segment, key → slip? | `DAYS`, `SLIP_AFTER` | `test_experiment.py` |
+| `experiment_prompts.py` | Choosing the service, slip reminders (Close it), the day-30 questions, the tray line | — | — | manual |
+| `core/grand.py` | The grand gesture's session rules (long, breaks allowed) | base params, hours → `SessionParams` | `GrandParams` | `test_experiment.py` |
+| `grand_prompts.py` | The one thing, the length, "what did you get done?" | — | — | manual |
 | `core/rules/base.py` | The rule abstraction: quantity vs. soft threshold (threshold, softness, direction, range, steps) → chance → sampled decision; `AllOf`, `Cadence` | context → chance / fire? | per rule | `test_rule.py` |
 | `core/rules/*.py` | One rule per file: `budget` (shallow share), `shutdown` (time × low focus), `focus` (low focus in sessions, not rising), `absence` (ask "what did you do?"; `StillThere`: openjev's veto), `reminder` (routine reminders), `capture` (time on shallow / distraction), `walk` (suggest a thinking walk) | per rule | params next to the feature (`BudgetParams`, `ShutdownParams`, …) | per feature |
 | `core/budget.py` | Shallow-work budget: shallow share of active time; soft threshold, prompt sampled with a chance rising with the overshoot | minutes by activity → share; share → prompt? | `[shallow]`, `BudgetParams` | `test_budget.py` |

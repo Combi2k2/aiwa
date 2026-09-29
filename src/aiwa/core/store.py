@@ -40,6 +40,16 @@ CREATE TABLE IF NOT EXISTS site_kinds (
     confidence REAL,         -- openjev's probability
     set_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS experiments (
+    id INTEGER PRIMARY KEY,
+    key TEXT NOT NULL,          -- the website domain or app quit for 30 days
+    started TEXT NOT NULL,      -- day 1 (local date)
+    status TEXT NOT NULL,       -- 'running', 'quit' (for good), 'ended' (went back)
+    slips INTEGER DEFAULT 0,
+    better_with_it INTEGER,     -- day-30 answers (1 yes, 0 no)
+    anyone_cared INTEGER,
+    ended_at TEXT
+);
 CREATE TABLE IF NOT EXISTS ratings (
     id INTEGER PRIMARY KEY,
     asked_at TEXT NOT NULL,
@@ -225,6 +235,31 @@ class Store:
             " VALUES (?, ?, ?, ?, ?)",
             (key, category.value, source, set_at.isoformat(), confidence),
         )
+        self._db.commit()
+
+    def start_experiment(self, key: str, started: date) -> int:
+        cur = self._db.execute("INSERT INTO experiments (key, started, status) VALUES (?, ?, 'running')",
+                               (key, started.isoformat()))
+        self._db.commit()
+        return cur.lastrowid
+
+    def experiments(self, statuses: tuple[str, ...] = ("running", "quit")) -> list:
+        from aiwa.core.experiment import Experiment
+
+        marks = ", ".join("?" * len(statuses))
+        rows = self._db.execute(f"SELECT id, key, started, status, slips FROM experiments WHERE status IN ({marks})",
+                                statuses).fetchall()
+        return [Experiment(i, k, date.fromisoformat(s), st, n) for i, k, s, st, n in rows]
+
+    def add_slip(self, experiment_id: int) -> None:
+        self._db.execute("UPDATE experiments SET slips = slips + 1 WHERE id = ?", (experiment_id,))
+        self._db.commit()
+
+    def end_experiment(self, experiment_id: int, status: str, better_with_it: bool | None,
+                       anyone_cared: bool | None, now: datetime) -> None:
+        self._db.execute(
+            "UPDATE experiments SET status = ?, better_with_it = ?, anyone_cared = ?, ended_at = ? WHERE id = ?",
+            (status, better_with_it, anyone_cared, now.isoformat(), experiment_id))
         self._db.commit()
 
     def set_kind(self, key: str, kind: str, source: str, set_at: datetime, confidence: float | None = None) -> None:

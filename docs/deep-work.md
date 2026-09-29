@@ -35,8 +35,9 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   - [ ] **Journalistic**: deep work whenever time appears (current ad-hoc sessions)
 - [~] **Ritualize**: where, how long, how you work, what supports you
   → focus-session template: duration, allowed apps, pre-session checklist
-- [ ] **Grand gesture**
+- [x] **Grand gesture**
   → optional "big session" mode: long block, strict allowlist, all nudges but blockers off
+  *(built 2026-09-29: tray → Grand gesture…; one long session (4 h / 8 h), wrap-up only at the end, breaks allowed (alarm 20 min, end 45 min); outcome kept as a note)*
 - [ ] **Hub-and-spoke collaboration**
   → separate "collaboration" and "solo" blocks; don't nudge about Slack during collaboration
 - [ ] **4DX 1: Focus on the wildly important**
@@ -78,8 +79,9 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   → weekly report per app/site: time spent vs. whether the user marked it as serving a goal
 - [ ] **Law of the vital few**
   → show which few activities produce most of the deep hours
-- [ ] **30-day test**
+- [x] **30-day test**
   → user picks a service to quit for 30 days; aiwa tracks slips and asks the two questions at the end
+  *(built 2026-09-29: tray → 30-day test…; slips = 10 s on it per visit, reminder with Close it; Newport's two questions on day 30; two noes → quit for good)*
 - [ ] **Don't use the internet to entertain yourself**
   → evening/weekend report of entertainment browsing; optional planned-leisure prompt
 

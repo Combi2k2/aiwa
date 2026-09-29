@@ -387,3 +387,13 @@ Build order: morning start → routine questions → offline tasks → consisten
   "Something else" or unsure → "What is …?" with the groups.
 - Sites classified before: their kind is filled in quietly by openjev at startup.
 - The kind is context for openjev's "still at the computer?" veto.
+
+## Decisions 2026-09-29: 30-day test and grand gesture
+- **30-day test** (tray → 30-day test…): pick one of the week's top distraction
+  sites/apps; slips = 10 s on it in one visit (hard rule: the user's own commitment),
+  counted once per visit, with a "Day N of your break" reminder → Close it / Just this
+  once. Tray line with day and slips. After day 30: Newport's two questions; two noes →
+  "Quit for good" (slip reminders stay on) or go back.
+- **Grand gesture** (tray → Grand gesture…): the one big thing + half day (4 h) / full day
+  (8 h): a session with the wrap-up only at the end and breaks allowed (away alarm 20
+  min, auto-end 45 min); at the end "what did you get done?" → a note.
