@@ -48,6 +48,7 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/morning.py` | Morning start: greet on the first activity, routine timer (time + clamp(20%, 5, 20) min), alarm when not back, then suggest the first session | now, active? → `Action` | — | `test_morning.py` |
 | `morning_prompts.py` | Shows today's work and the routine question, rings its own alarm, suggests the session; once per day | — | — | manual |
 | `core/routines.py` | Absences (away or laptop asleep, ≥ 5 min) → sometimes "what was that?" (chance by duration), likely activities by duration and time of day; the taxonomy; overnight = sleep | active? over time → `Absence`s | — | `test_routines.py` |
+| `core/offline.py` | Offline work in a session: away on a task marked offline = the work (no away alarm or auto-end), credited as deep minutes; away past estimate + 30 min → only the estimate counts, then normal away rules | current task, away since, now → `OfflineStep` | `OFFLINE_GRACE`, `OFFLINE_LIKELY` in `backlog.py` | `test_offline.py` |
 | `routine_prompts.py` | Stores every absence, asks about some (likely options, "Other…" → categories → activities, "Skip") | — | — | manual |
 | `core/analyzer.py`, `core/rules/` | Notice patterns outside sessions (currently none active: parked until scheduled deep-work blocks) | `Segment`s → `Finding`s | per rule | `test_core.py` |
 | `core/policy.py` | Allow an interruption? | `Finding`, now, away → yes/no | `[nudges]` | `test_core.py` |

@@ -8,7 +8,7 @@ from aiwa.core.history import SessionSummary
 from aiwa.core.schedule import Block
 from aiwa.core.scoreboard import DayScore
 
-ACTIVITY_ORDER = ["deep", "shallow", "distraction", "neutral", "unclassified", "untracked", "away"]
+ACTIVITY_ORDER = ["deep", "offline", "shallow", "distraction", "neutral", "unclassified", "untracked", "away"]
 
 
 def duration(minutes: int) -> str:

@@ -49,6 +49,7 @@ class TasksController:
             on_priority=self._set_priority,
         )
         self.session_group: Group | None = None  # the goal group this session works on
+        self.current_task: Task | None = self._saved_current_task()  # the task started in this session
         self.skipped_groups: set[int] = set()
         self._after_save: Callable[[], None] | None = None
 
@@ -152,10 +153,22 @@ class TasksController:
         """At session start: pick the most urgent goal group and hand over its first task."""
         self.skipped_groups = set()
         self.session_group = None
+        self._set_current(None)
         self.offer_task()
 
     def end_session(self) -> None:
         self.session_group = None
+        self._set_current(None)
+
+    def _set_current(self, task: Task | None) -> None:
+        self.current_task = task
+        self.store.set_state("session_task", str(task.id) if task else "")  # survives a restart
+
+    def _saved_current_task(self) -> Task | None:
+        saved = self.store.get_state("session_task")
+        if not saved:
+            return None
+        return next((t for t in self.store.tasks() if t.id == int(saved) and t.status == "open"), None)
 
     def next_task(self, now: datetime) -> tuple[Group | None, Task | None]:
         tasks = self.store.tasks()
@@ -189,14 +202,23 @@ class TasksController:
         self.session_group = group
         today = self.today(datetime.now(timezone.utc))
         where = f"This session: {group.name} ({backlog.due_text(task.deadline, today)})\n" if group else ""
-        self.popup.ask(
-            f"{intro + chr(10) if intro else ''}{where}Next: {task.title}  (~{backlog.minutes_text(task.estimate)})",
-            lambda a: self._on_offer(a, task),
-            [("Start", "start"), ("Other group", "other"), ("Done", "done")],
-        )
+        text = f"{intro + chr(10) if intro else ''}{where}Next: {task.title}  (~{backlog.minutes_text(task.estimate)})"
+        if task.offline or backlog.ask_if_offline(task):
+            # offline first: the user confirms (or overrules) openjev's or their earlier answer
+            note = "You do this one away from the computer." if task.offline else "This looks like it can be done away from the computer."
+            text += f"\n{note} Away time then counts as deep work."
+            starts = [("Start offline", "offline"), ("At the computer", "start")]
+        else:
+            starts = [("Start", "start"), ("Start offline", "offline")]
+        self.popup.ask(text, lambda a: self._on_offer(a, task), starts + [("Other group", "other"), ("Done", "done")])
 
     def _on_offer(self, answer: str, task: Task) -> None:
-        if answer == "done":
+        if answer in ("start", "offline"):
+            offline = answer == "offline"
+            if task.offline != offline:
+                self.store.update_task(task.id, offline=int(offline))
+            self._set_current(next(t for t in self.store.tasks() if t.id == task.id))
+        elif answer == "done":
             self._set_status(task, "done")
             self.offer_task()
         elif answer == "other":
@@ -207,7 +229,8 @@ class TasksController:
 
     def task_done(self) -> None:
         """Tray: the current task is finished; hand over the next one from the same group."""
-        _, task = self.next_task(datetime.now(timezone.utc))
+        task = self.current_task or self.next_task(datetime.now(timezone.utc))[1]
+        self._set_current(None)
         if task:
             self._set_status(task, "done")
         self.offer_task()

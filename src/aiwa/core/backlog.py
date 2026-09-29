@@ -27,6 +27,7 @@ class Assessment:
     kind: str | None  # 'deep' or 'shallow'
     minutes: int | None  # its size estimate; None = can't be told
     specific: float  # 0..1: concrete scope and a clear end point?
+    offline: float | None = None  # 0..1: can it be done away from a computer?
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,8 @@ class Task:
     kind: str | None = None  # openjev: 'deep' or 'shallow'
     status: str = "open"  # 'open', 'done' or 'dropped'
     position: int = 0
+    offline: bool | None = None  # the user's answer: done away from the computer? None = not asked
+    jev_offline: float | None = None  # openjev: how likely it can be done offline
 
 
 def breakdown_reason(estimate: int, assessment: Assessment | None) -> str | None:
@@ -68,6 +71,20 @@ def estimate_mismatch(estimate: int, assessment: Assessment | None) -> bool:
         return False
     ratio = assessment.minutes / estimate
     return ratio >= MISMATCH_RATIO or ratio <= 1 / MISMATCH_RATIO
+
+
+OFFLINE_LIKELY = 0.5  # openjev at least this sure → ask the user whether they'll do it offline
+OFFLINE_GRACE = timedelta(minutes=30)  # away this much longer than the estimate → normal away rules again
+
+
+def ask_if_offline(task: Task) -> bool:
+    """Ask at hand-over whether the task will be done away from the computer."""
+    return task.offline is None and (task.jev_offline or 0) >= OFFLINE_LIKELY
+
+
+def away_is_offline_work(task: Task | None, away_since: datetime, now: datetime) -> bool:
+    """Being away counts as working on an offline task, up to its estimate plus a grace period."""
+    return bool(task and task.offline) and now - away_since <= timedelta(minutes=task.estimate) + OFFLINE_GRACE
 
 
 def workable(tasks: list[Task]) -> list[Task]:

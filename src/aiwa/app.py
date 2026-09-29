@@ -32,6 +32,7 @@ from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
 from aiwa.bedtime_prompts import BedtimePrompts
 from aiwa.core.backlog import minutes_text
+from aiwa.core.offline import OfflineWork
 from aiwa.morning_prompts import MorningPrompts
 from aiwa.routine_prompts import RoutinePrompts
 from aiwa.rhythm_prompts import RhythmPrompts
@@ -92,6 +93,7 @@ class Aiwa:
         self.session: FocusSession | None = None
         self.session_id: int | None = None
         self.session_checked: datetime | None = None  # last time the session was stepped
+        self.offline = OfflineWork()  # away time on an offline task
         running = self.store.running_session()  # resume a session that was running when aiwa stopped
         if running:
             self.session_id, started = running
@@ -215,6 +217,7 @@ class Aiwa:
         counts = {action.value: n for action, n in self.session.counts.items()}
         self.store.end_session(self.session_id, now, counts, ended_by)
         self.session = self.session_id = None
+        self.offline.reset()
         self.tasks.end_session()
         self.alarm.stop()
         self.tray.set_session(None)
@@ -225,7 +228,9 @@ class Aiwa:
         if not self.session:
             return
         last_check, self.session_checked = self.session_checked, now
-        if last_check and now - last_check >= self.config.session.away_end_after:
+        task = self.tasks.current_task
+        slept = last_check and now - last_check >= self.config.session.away_end_after
+        if slept and not (task and task.offline):
             # aiwa didn't run for a while (the Mac slept): the session ended back then
             self.stop_session(last_check, ended_by="away")
             return
@@ -237,6 +242,11 @@ class Aiwa:
             away_since = max(latest.end if latest else self.session.started_at, self.session.started_at)
         else:
             away_since = latest.start if latest.away else None
+        if slept and away_since is None:
+            away_since = last_check  # the Mac slept during offline work and just woke up: the user is back now
+        offline, away_since = self.step_offline_work(task, away_since, now)
+        if offline:
+            return  # working offline, or just back from it: no focus checks this time
         short = moment(segments, now, SESSION_FOCUS_WINDOW, self.config.focus)
         low = self.low_focus(short.intensity)
         if away_since is None and not low and self.alarm.ringing:
@@ -265,6 +275,23 @@ class Aiwa:
             options = [("Back on it", "ok"), ("Stop session", "stop")]
         # session messages take priority over any other open question
         self.popup.ask(message, self.on_session_answer, options)
+
+    def step_offline_work(self, task, away_since: datetime | None, now: datetime) -> tuple[bool, datetime | None]:
+        """Away during an offline task is the work itself (core/offline.py); records it and asks when back."""
+        step = self.offline.step(task, away_since, now)
+        if step.offline and step.credit is None and self.alarm.ringing:
+            self.alarm.stop()
+        if step.credit:
+            worked = self.store.mark_offline_work(*step.credit)
+            if step.back:
+                self.routines.offline_work_done()  # no "what was that?" about it
+                if task:
+                    self.popup.ask(
+                        f"Welcome back: {minutes_text(worked)} of offline work on “{task.title}”. Is it done?",
+                        lambda a: self.tasks.task_done() if a == "done" else None,
+                        [("Done", "done"), ("Not yet", "no")],
+                    )
+        return step.offline, step.away_since
 
     def on_session_answer(self, response: str) -> None:
         self.alarm.stop()

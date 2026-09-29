@@ -216,6 +216,15 @@ by hand before the AI planner exists, or wait for it?
 
 Build order: morning start → routine questions → offline tasks → consistency line.
 
+- **Offline tasks (built):** openjev judges each new task "can it be done away from a
+  computer?". When a task is handed over in a session, the popup offers "Start offline" /
+  "At the computer" (offline first when openjev thinks so); the answer is stored on the
+  task. Away on an offline task: no alarm, no auto-end (also across laptop sleep); back →
+  the time is recorded as deep minutes ("Offline" in the scoreboard) and aiwa asks whether
+  the task is done; no "what was that?" question for that absence. Away longer than the
+  estimate + 30 min → only the estimate is credited and the normal away rules apply.
+  Pending: absences answered "offline work" prompting a session next time.
+
 - **Routine answers (update):** the user will *type* what they did, and openjev classifies
   it into the taxonomy; these questions will move into an inbox-style interface later
   (interfaces come after the data work). The current popup with fixed options is interim.

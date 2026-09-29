@@ -81,6 +81,11 @@ TASK_QUESTIONS = {
         "instructions": "Is the task specific enough that someone could estimate its size and know when it is done?",
         "criteria": {"true": "Concrete scope and a clear end point", "false": "Vague, open-ended, or needs context that is not given"},
     },
+    "offline": {
+        "type": "noul",
+        "instructions": "Can this task be done well away from a computer (e.g. reading on paper, writing or solving by hand, thinking it through on a walk)?",
+        "criteria": {"true": "Needs no computer", "false": "Needs a computer or phone"},
+    },
 }
 
 
@@ -94,6 +99,7 @@ def assess_task(client: Openjev, task: str):
             kind=a["kind"]["choice"],
             minutes=SIZE_MINUTES.get(a["size"]["choice"]),
             specific=float(a["specific"]["noul"]),
+            offline=float(a["offline"]["noul"]) if "offline" in a else None,
         )
     except (requests.RequestException, KeyError, ValueError, TypeError):
         return None

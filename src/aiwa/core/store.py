@@ -94,6 +94,8 @@ CREATE TABLE IF NOT EXISTS backlog (
     kind TEXT,                      -- openjev: 'deep' or 'shallow'
     jev_minutes INTEGER,            -- openjev's size estimate (NULL = unclear)
     jev_specific REAL,              -- openjev: how specific (0..1)
+    jev_offline REAL,               -- openjev: how likely it can be done away from a computer (0..1)
+    offline INTEGER,                -- the user's answer: 1 offline, 0 at the computer, NULL not asked
     status TEXT NOT NULL DEFAULT 'open',  -- 'open', 'done' or 'dropped'
     position INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
@@ -136,6 +138,10 @@ class Store:
         for column, kind in [("confidence", "REAL"), ("confirmed_at", "TEXT")]:
             if column not in columns:  # databases created by older versions
                 self._db.execute(f"ALTER TABLE categories ADD COLUMN {column} {kind}")
+        backlog_columns = {row[1] for row in self._db.execute("PRAGMA table_info(backlog)")}
+        for column, kind in [("jev_offline", "REAL"), ("offline", "INTEGER")]:
+            if column not in backlog_columns:  # databases created by older versions
+                self._db.execute(f"ALTER TABLE backlog ADD COLUMN {column} {kind}")
         if "ended_by" not in {row[1] for row in self._db.execute("PRAGMA table_info(sessions)")}:
             self._db.execute("ALTER TABLE sessions ADD COLUMN ended_by TEXT")
         self._migrate_todos()
@@ -321,16 +327,18 @@ class Store:
         (last,) = self._db.execute("SELECT COALESCE(MAX(position), 0) FROM backlog").fetchone()
         cur = self._db.execute(
             "INSERT INTO backlog (group_id, parent_id, title, description, deadline, estimate, kind, jev_minutes,"
-            " jev_specific, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " jev_specific, jev_offline, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (group_id, parent_id, title, description, deadline.isoformat() if deadline else None, estimate,
              assessment.kind if assessment else None, assessment.minutes if assessment else None,
-             assessment.specific if assessment else None, last + 1, now.isoformat()),
+             assessment.specific if assessment else None, assessment.offline if assessment else None,
+             last + 1, now.isoformat()),
         )
         self._db.commit()
         return cur.lastrowid
 
     def update_task(self, task_id: int, **fields) -> None:
-        allowed = {"group_id", "title", "description", "deadline", "estimate", "kind", "jev_minutes", "jev_specific"}
+        allowed = {"group_id", "title", "description", "deadline", "estimate", "kind", "jev_minutes", "jev_specific",
+                   "jev_offline", "offline"}
         if not fields or not set(fields) <= allowed:
             raise ValueError(f"can't update {set(fields) - allowed}")
         if isinstance(fields.get("deadline"), date):
@@ -344,12 +352,13 @@ class Store:
 
         where = "" if include_closed else "WHERE status = 'open'"
         rows = self._db.execute(
-            "SELECT id, group_id, parent_id, title, description, deadline, estimate, kind, status, position"
-            f" FROM backlog {where} ORDER BY position"
+            "SELECT id, group_id, parent_id, title, description, deadline, estimate, kind, status, position,"
+            f" offline, jev_offline FROM backlog {where} ORDER BY position"
         ).fetchall()
         return [
-            Task(i, g, par, t, d or "", date.fromisoformat(dl) if dl else None, est, k, st, pos)
-            for i, g, par, t, d, dl, est, k, st, pos in rows
+            Task(i, g, par, t, d or "", date.fromisoformat(dl) if dl else None, est, k, st, pos,
+                 None if off is None else bool(off), jo)
+            for i, g, par, t, d, dl, est, k, st, pos, off, jo in rows
         ]
 
     def set_task_status(self, task_id: int, status: str, at: datetime) -> None:
@@ -381,6 +390,17 @@ class Store:
     def absences(self) -> list[tuple[datetime, datetime, str | None, str]]:
         rows = self._db.execute("SELECT start, end, activity, source FROM absences ORDER BY start").fetchall()
         return [(datetime.fromisoformat(a), datetime.fromisoformat(b), act, src) for a, b, act, src in rows]
+
+    def mark_offline_work(self, start: datetime, end: datetime) -> int:
+        """Record [start, end) as deep work done offline (it shows as away otherwise). Returns minutes."""
+        from aiwa.core.scoreboard.ledger import MINUTE, MinuteEntry, minute_floor
+
+        entries, minute = [], minute_floor(start)
+        while minute + MINUTE <= end:
+            entries.append(MinuteEntry(minute, 1.0, "offline"))
+            minute += MINUTE
+        self.save_minutes(entries)
+        return len(entries)
 
     def get_state(self, key: str) -> str | None:
         row = self._db.execute("SELECT value FROM state WHERE key = ?", (key,)).fetchone()

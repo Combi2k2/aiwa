@@ -25,16 +25,25 @@ class RoutinePrompts:
         self.day_starts = day_starts
         self.tracker = AbsenceTracker(always_ask=always_ask)
         self.pending: tuple[int, Absence] | None = None  # waiting for the popup to be free
+        self.offline_task = False  # the absence ending now was work on an offline task: don't ask
+
+    def offline_work_done(self) -> None:
+        """The user is back from working on an offline task (called before `step`)."""
+        self.offline_task = True
 
     def step(self, now: datetime, active: bool, away_since: datetime | None = None) -> None:
         absence = self.tracker.step(now, active, away_since)
         if absence is not None:
-            if overnight(absence, self.bedtime, self.day_starts):
+            if self.offline_task:
+                self.store.add_absence(absence.start, absence.end, "offline_task", "session")
+            elif overnight(absence, self.bedtime, self.day_starts):
                 self.store.add_absence(absence.start, absence.end, "sleep", "auto")
             elif self.tracker.should_ask(absence):
                 self.pending = (self.store.add_absence(absence.start, absence.end, None, "unasked"), absence)
             else:
                 self.store.add_absence(absence.start, absence.end, None, "unasked")
+        if active:
+            self.offline_task = False
         if self.pending and not self.popup.isVisible():
             absence_id, absence = self.pending
             self.pending = None
