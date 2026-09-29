@@ -238,3 +238,25 @@ Build order: morning start → routine questions → offline tasks → consisten
   "none of these"). ≥ 0.7 sure → saved. Unsure → "which one was it?" with its top 3
   guesses, "Something else" and "Don't ask me this" (then openjev's guess is kept, marked
   unsure). The typed text is always kept. The inbox UI comes later.
+
+## Decisions 2026-09-29: capture instead of focus nudges
+- **No focus nudges outside sessions.** The daily quota is the pressure; outside sessions
+  the user isn't pushed to stay focused. The parked fragmentation/bouncing rules stay off.
+- **Capture:** outside sessions, aiwa asks "anything worth noting?":
+  - on a shallow app/site (email, chat) after 15 s, once per visit (switching away and
+    back is a new visit);
+  - after 5 min in distraction (feeds, video; any mix of them; a break of 1+ min ends the
+    stretch), once per stretch.
+  The user types a note (kept with its source tab/window). openjev judges whether it's a
+  to-do; if so, "Add it to your tasks?" opens the task form prefilled (estimate, deadline,
+  goal group priority as usual) and the task is linked to its tab/window.
+- **Follow-up:** a task from a tab/window not visited for 15 min → "Did you finish it?":
+  Done, close the tab/window · Done · Another day, close the tab/window (stays in the
+  backlog, its link kept) · Not yet (asked again after 15 min). Closing works for
+  Chrome-family browsers and Safari tabs, and app windows that support AppleScript
+  (macOS asks once for permission to control that app).
+- **Changing a category** belongs in the GUI (later), not the tray.
+- **Calendar / Jira / Trello:** undecided. Idea: use existing MCP servers rather than
+  building integrations; this starts to overlap with general agent platforms (e.g.
+  OpenClaw), so decide the boundary before building.
+- **Answers "offline work" outside a session:** an insight to use later.

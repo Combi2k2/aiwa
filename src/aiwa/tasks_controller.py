@@ -52,6 +52,8 @@ class TasksController:
         self.current_task: Task | None = self._saved_current_task()  # the task started in this session
         self.skipped_groups: set[int] = set()
         self._after_save: Callable[[], None] | None = None
+        self._source = None  # core.capture.Source of the task being added from a note
+        self._on_added: Callable[[int], None] | None = None
 
     # --- the task window and forms -----------------------------------------------------
 
@@ -65,13 +67,15 @@ class TasksController:
         self.board.refresh(self.store.groups(), self.store.tasks(), self.today(now), now,
                            self.store.tasks_done_between(start, end), self.deep_minutes_today(now))
 
-    def new_task(self, then: Callable[[], None] | None = None) -> None:
-        self._after_save = then
+    def new_task(self, then: Callable[[], None] | None = None, title: str = "", source=None,
+                 on_added: Callable[[int], None] | None = None) -> None:
+        """`source`: the tab/window a task noted there came from (for "finished?" later)."""
+        self._after_save, self._source, self._on_added = then, source, on_added
         now = datetime.now(timezone.utc)
-        self.form.open(self._group_priorities(), backlog.default_deadline(self.today(now)), self._saved)
+        self.form.open(self._group_priorities(), backlog.default_deadline(self.today(now)), self._saved, title=title)
 
     def edit_task(self, task: Task) -> None:
-        self._after_save = None
+        self._after_save, self._source, self._on_added = None, None, None
         names = {g.id: g.name for g in self.store.groups()}
         default = backlog.default_deadline(self.today(datetime.now(timezone.utc)))
         self.form.open(self._group_priorities(), default, self._saved, task=task, group_name=names.get(task.group_id))
@@ -93,6 +97,12 @@ class TasksController:
         else:
             task_id = self.store.add_task(group_id, fields["title"], fields["description"], fields["deadline"],
                                           fields["estimate"], now, assessment=assessment)
+            if self._source is not None:
+                self.store.update_task(task_id, source_app=self._source.app, source_title=self._source.title,
+                                       source_url=self._source.url)
+            if self._on_added:
+                self._on_added(task_id)
+            self._source = self._on_added = None
         self.refresh()
         task = next(t for t in self.store.tasks() if t.id == task_id)
         if reason:

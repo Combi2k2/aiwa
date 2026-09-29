@@ -87,8 +87,8 @@ class TaskForm(QWidget):
         self.group.currentTextChanged.connect(self._group_changed)
 
     def open(self, groups: dict[str, str], default_deadline: date, on_saved: Saved, task: Task | None = None,
-             group_name: str | None = None) -> None:
-        """groups: name → priority. `task` set = edit an existing task."""
+             group_name: str | None = None, title: str = "") -> None:
+        """groups: name → priority. `task` set = edit an existing task; `title` prefills a new one."""
         self._on_saved, self._editing = on_saved, task
         self._groups = groups
         self._confirmed_estimate = task is not None  # don't re-ask about an estimate the user already kept
@@ -99,7 +99,7 @@ class TaskForm(QWidget):
         self.group.addItems(sorted(groups))
         self.group.setCurrentText(group_name or "")
         self.group.blockSignals(False)
-        self.title.setText(task.title if task else "")
+        self.title.setText(task.title if task else title)
         self.description.setPlainText(task.description if task else "")
         d = (task.deadline if task and task.deadline else default_deadline)
         self.deadline.setDate(QDate(d.year, d.month, d.day))

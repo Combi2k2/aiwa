@@ -24,13 +24,14 @@ from aiwa.core.sampling import SamplingSchedule
 from aiwa.core.scoreboard import ScoreKeeper
 from aiwa.core.scoreboard.day import day_bounds
 from aiwa.core.session import Action, BelowThreshold, FocusSession
-from aiwa.core.openjev import Openjev, assess_task, classify_activity, suggest_group
+from aiwa.core.openjev import Openjev, assess_task, classify_activity, is_todo, suggest_group
 from aiwa.core.quota import QuotaKeeper
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
 from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
 from aiwa.bedtime_prompts import BedtimePrompts
+from aiwa.capture_prompts import CapturePrompts
 from aiwa.core.backlog import minutes_text
 from aiwa.core.consistency import ConsistencyParams, consistency
 from aiwa.core.offline import OfflineWork
@@ -133,6 +134,8 @@ class Aiwa:
         self.routines = RoutinePrompts(self.store, self.popup, config.bedtime.wind_down, config.day_starts,
                                        always_ask=config.routines_always_ask,
                                        classify=(lambda text: classify_activity(openjev, text)) if openjev else None)
+        self.capture = CapturePrompts(self.store, self.popup, self.tasks,
+                                      (lambda note: is_todo(openjev, note)) if openjev else None)
         self.prompts = RhythmPrompts(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
             request_session=lambda: self.tasks.request_session(self.start_session),
@@ -182,6 +185,7 @@ class Aiwa:
         self.morning.step(now, active, in_session=self.session is not None)
         self.routines.step(now, active, away_since=latest.start if latest is not None and latest.away else None)
         self.update_scoreboard(now)
+        self.capture.refresh()
         self.prompts.check_block(now, in_session=self.session is not None)
         self.prompts.check_evening(now)
 
@@ -331,6 +335,8 @@ class Aiwa:
         except OSError:
             return  # ActivityWatch not reachable; tick() reports it in the tray
         question = self.classifier.observe(current, now)
+        category = self.categorizer.categorize(current) if current is not None and not current.away else None
+        self.capture.step(now, current, category, in_session=self.session is not None)
         if question and not self.popup.isVisible():
             self.ask(question)
         elif self.sampling and not self.popup.isVisible():

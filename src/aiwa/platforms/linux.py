@@ -39,3 +39,11 @@ def autostart_installed() -> bool:
 
 def lock_screen() -> None:
     subprocess.Popen(["loginctl", "lock-session"])
+
+
+def close_tab(app: str, url: str) -> bool:
+    return False  # not supported yet
+
+
+def close_window(app: str, title: str) -> bool:
+    return False  # not supported yet

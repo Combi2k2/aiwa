@@ -56,3 +56,35 @@ def autostart_installed() -> bool:
 def lock_screen() -> None:
     # Display sleep locks the Mac when "require password after sleep" is on (the default).
     subprocess.Popen(["pmset", "displaysleepnow"])
+
+
+# browsers whose tabs can be closed by AppleScript (Firefox has no AppleScript support)
+_CHROMIUM = {"Google Chrome", "Brave Browser", "Microsoft Edge", "Chromium", "Vivaldi", "Arc"}
+
+
+def _applescript_string(text: str) -> str:
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def close_tab(app: str, url: str) -> bool:
+    """Close the browser tab(s) showing `url`. False if it couldn't be done."""
+    if app in _CHROMIUM:
+        script = f"tell application {_applescript_string(app)} to close (every tab of every window whose URL is {_applescript_string(url)})"
+    elif app == "Safari":
+        script = f"tell application \"Safari\" to close (every tab of every window whose URL is {_applescript_string(url)})"
+    else:
+        return False
+    return _osascript(script)
+
+
+def close_window(app: str, title: str) -> bool:
+    """Close the app's window with this title (apps that support AppleScript). False if it couldn't be done."""
+    return _osascript(f"tell application {_applescript_string(app)} to close (every window whose name is {_applescript_string(title)})")
+
+
+def _osascript(script: str) -> bool:
+    # the first time, macOS asks the user to allow aiwa to control that app
+    try:
+        return subprocess.run(["osascript", "-e", script], capture_output=True, timeout=10).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False

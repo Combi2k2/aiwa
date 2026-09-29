@@ -101,6 +101,16 @@ CREATE TABLE IF NOT EXISTS backlog (
     created_at TEXT NOT NULL,
     done_at TEXT
 );
+CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    text TEXT NOT NULL,             -- what the user noted while on something shallow or distracting
+    category TEXT,                  -- the source's category: 'shallow' or 'distraction'
+    source_app TEXT,
+    source_title TEXT,
+    source_url TEXT,
+    task_id INTEGER                 -- the task it became, if any
+);
 CREATE TABLE IF NOT EXISTS absences (
     id INTEGER PRIMARY KEY,
     start TEXT NOT NULL,            -- last activity before it (UTC)
@@ -146,7 +156,8 @@ class Store:
             if column not in absence_columns:
                 self._db.execute(f"ALTER TABLE absences ADD COLUMN {column} {kind}")
         backlog_columns = {row[1] for row in self._db.execute("PRAGMA table_info(backlog)")}
-        for column, kind in [("jev_offline", "REAL"), ("offline", "INTEGER")]:
+        for column, kind in [("jev_offline", "REAL"), ("offline", "INTEGER"),
+                             ("source_app", "TEXT"), ("source_title", "TEXT"), ("source_url", "TEXT")]:
             if column not in backlog_columns:  # databases created by older versions
                 self._db.execute(f"ALTER TABLE backlog ADD COLUMN {column} {kind}")
         if "ended_by" not in {row[1] for row in self._db.execute("PRAGMA table_info(sessions)")}:
@@ -345,7 +356,7 @@ class Store:
 
     def update_task(self, task_id: int, **fields) -> None:
         allowed = {"group_id", "title", "description", "deadline", "estimate", "kind", "jev_minutes", "jev_specific",
-                   "jev_offline", "offline"}
+                   "jev_offline", "offline", "source_app", "source_title", "source_url"}
         if not fields or not set(fields) <= allowed:
             raise ValueError(f"can't update {set(fields) - allowed}")
         if isinstance(fields.get("deadline"), date):
@@ -405,6 +416,38 @@ class Store:
     def absences(self) -> list[tuple[datetime, datetime, str | None, str]]:
         rows = self._db.execute("SELECT start, end, activity, source FROM absences ORDER BY start").fetchall()
         return [(datetime.fromisoformat(a), datetime.fromisoformat(b), act, src) for a, b, act, src in rows]
+
+    def add_note(self, text: str, source, now: datetime) -> int:
+        """`source`: core.capture.Source, or None."""
+        cur = self._db.execute(
+            "INSERT INTO notes (created_at, text, category, source_app, source_title, source_url) VALUES (?, ?, ?, ?, ?, ?)",
+            (now.astimezone(timezone.utc).isoformat(), text,
+             source.category.value if source and source.category else None,
+             source.app if source else None, source.title if source else None, source.url if source else None),
+        )
+        self._db.commit()
+        return cur.lastrowid
+
+    def link_note(self, note_id: int, task_id: int) -> None:
+        self._db.execute("UPDATE notes SET task_id = ? WHERE id = ?", (task_id, note_id))
+        self._db.commit()
+
+    def notes(self) -> list[tuple[datetime, str, str | None, int | None]]:
+        """(created_at, text, source url or app, task id), oldest first."""
+        rows = self._db.execute(
+            "SELECT created_at, text, COALESCE(source_url, source_app), task_id FROM notes ORDER BY created_at"
+        ).fetchall()
+        return [(datetime.fromisoformat(c), t, src, task) for c, t, src, task in rows]
+
+    def task_sources(self) -> list:
+        """(task id, core.capture.Source) for open tasks that came from a tab or window."""
+        from aiwa.core.capture import Source
+
+        rows = self._db.execute(
+            "SELECT id, source_app, COALESCE(source_title, ''), source_url FROM backlog"
+            " WHERE status = 'open' AND source_app IS NOT NULL"
+        ).fetchall()
+        return [(i, Source(app, title, url, "")) for i, app, title, url in rows]
 
     def mark_offline_work(self, start: datetime, end: datetime) -> int:
         """Record [start, end) as deep work done offline (it shows as away otherwise). Returns minutes."""

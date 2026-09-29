@@ -7,6 +7,8 @@
     EXECUTABLE_SUFFIX: str           "" or ".exe"
     SYSTEM_APPS: set[str]            system windows never worth a question (plus the `ignore_apps` setting)
     lock_screen() -> None            lock the screen / put the display to sleep
+    close_tab(app, url) -> bool      close a browser tab (False: couldn't)
+    close_window(app, title) -> bool close an app's window (False: couldn't)
 """
 
 import sys

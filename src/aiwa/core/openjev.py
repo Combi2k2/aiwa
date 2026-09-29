@@ -142,3 +142,17 @@ def classify_activity(client: Openjev, text: str) -> list[tuple[str, float]] | N
         return sorted(probabilities.items(), key=lambda kv: -kv[1])
     except (requests.RequestException, KeyError, ValueError, TypeError):
         return None
+
+
+def is_todo(client: Openjev, note: str) -> float | None:
+    """How likely a note is something the person needs to do (vs. just an idea or fact to keep)."""
+    try:
+        a = client.ask(
+            f'While reading email, chat, news or social media, a person noted: "{note}"',
+            {"todo": {"type": "noul", "instructions": "Is this something the person needs to do?",
+                      "criteria": {"true": "An action to take: reply, buy, fix, book, read later, follow up",
+                                   "false": "An idea, a fact or something interesting to remember"}}},
+        )["todo"]
+        return float(a["noul"])
+    except (requests.RequestException, KeyError, ValueError, TypeError):
+        return None
