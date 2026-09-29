@@ -172,7 +172,7 @@ class Aiwa:
         latest = max(segments, key=lambda s: s.end) if segments else None
         active = latest is not None and not latest.away and now - latest.end <= NO_DATA_AFTER
         self.bedtime.step(now, active)
-        self.morning.step(now, active)
+        self.morning.step(now, active, in_session=self.session is not None)
         self.update_scoreboard(now)
         self.prompts.check_block(now, in_session=self.session is not None)
         self.prompts.check_evening(now)

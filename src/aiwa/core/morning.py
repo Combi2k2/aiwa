@@ -3,9 +3,12 @@
 1. The first activity of the day → show today's work and ask how long the morning
    routine takes (or "start now" / "heading out today").
 2. The routine gets that time plus a buffer: clamp(20% of it, 5, 20) minutes.
-3. Back at the computer after having stepped away → suggest the first session.
-   Not back by the deadline → the alarm rings until the user is back, then the same.
-   Still at the computer when the deadline passes → just suggest the session.
+3. Back at the computer early (after having stepped away) → "Finished your routine?"
+   - finished → "start working?": yes → session; no → wait for the deadline
+   - "10 more minutes" (once) → back to the routine, deadline extended
+4. Deadline reached without a session → the alarm rings until a session starts
+   (or the user is heading out).
+Starting a session at any point ends the morning.
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 
 LEFT_AFTER = timedelta(minutes=3)  # away at least this long during the routine = actually went to do it
+EXTENSION = timedelta(minutes=10)  # "10 more minutes", once
 
 
 def buffer_for(routine: timedelta) -> timedelta:
@@ -25,16 +29,20 @@ def buffer_for(routine: timedelta) -> timedelta:
 
 class State(Enum):
     WAITING = "waiting"  # no activity yet today
-    ASKED = "asked"  # the morning popup is showing
-    ROUTINE = "routine"  # doing the morning routine
-    DONE = "done"  # session suggested, skipped, or heading out
+    ASKED = "asked"  # the morning question is showing
+    ROUTINE = "routine"  # doing the morning routine; coming back early is checked
+    CHECKING = "checking"  # "finished your routine?" is showing
+    UNTIL_DEADLINE = "until_deadline"  # finished but not working yet: just wait for the deadline
+    RINGING = "ringing"  # deadline passed without a session
+    DONE = "done"  # a session started, heading out, or not a morning
 
 
 class Action(Enum):
     NONE = "none"
     GREET = "greet"  # first activity: show today's work, ask about the routine
-    ALARM = "alarm"  # routine deadline passed and the user isn't back
-    WELCOME_BACK = "welcome_back"  # back (or time's up at the computer): suggest the first session
+    CHECK = "check"  # back early: finished, or 10 more minutes?
+    ALARM = "alarm"  # deadline passed without a session
+    SILENCE = "silence"  # a session started: stop the alarm
 
 
 @dataclass
@@ -43,40 +51,55 @@ class MorningFlow:
     deadline: datetime | None = None
     away_since: datetime | None = None
     left: bool = False  # stepped away long enough during the routine
-    ringing: bool = False
+    extended: bool = False  # "10 more minutes" already used
 
-    def step(self, now: datetime, active: bool) -> Action:
+    def step(self, now: datetime, active: bool, in_session: bool = False) -> Action:
+        if self.state is State.DONE:
+            return Action.NONE
+        if in_session and self.state is not State.WAITING:
+            was_ringing = self.state is State.RINGING
+            self.state = State.DONE
+            return Action.SILENCE if was_ringing else Action.NONE
         if self.state is State.WAITING:
             if active:
                 self.state = State.ASKED
                 return Action.GREET
             return Action.NONE
-        if self.state is not State.ROUTINE:
-            return Action.NONE
-
-        if not active:
-            self.away_since = self.away_since or now
-            if now - self.away_since >= LEFT_AFTER:
-                self.left = True
-            if now >= self.deadline and not self.ringing:
-                self.ringing = True
-                return Action.ALARM
-            return Action.NONE
-        self.away_since = None
-        if self.ringing or self.left or now >= self.deadline:  # back, or time's up while still here
-            self.state = State.DONE
-            self.ringing = False
-            return Action.WELCOME_BACK
+        if self.state in (State.ROUTINE, State.UNTIL_DEADLINE) and now >= self.deadline:
+            self.state = State.RINGING
+            return Action.ALARM
+        if self.state is State.ROUTINE:
+            if not active:
+                self.away_since = self.away_since or now
+                if now - self.away_since >= LEFT_AFTER:
+                    self.left = True
+            else:
+                self.away_since = None
+                if self.left:
+                    self.state = State.CHECKING
+                    return Action.CHECK
         return Action.NONE
 
     def start_routine(self, now: datetime, minutes: int) -> datetime:
         routine = timedelta(minutes=minutes)
         self.state = State.ROUTINE
         self.deadline = now + routine + buffer_for(routine)
-        self.away_since, self.left, self.ringing = None, False, False
+        self.away_since, self.left = None, False
         return self.deadline
 
+    def more_time(self) -> bool:
+        """"10 more minutes": once. Returns whether it was granted."""
+        if self.extended:
+            return False
+        self.extended = True
+        self.deadline += EXTENSION
+        self.state, self.left, self.away_since = State.ROUTINE, False, None
+        return True
+
+    def finished_not_working(self) -> None:
+        """Routine done, but not ready to work: wait for the deadline (then the alarm)."""
+        self.state = State.UNTIL_DEADLINE
+
     def finish(self) -> None:
-        """Start now, heading out, or the session was suggested: nothing more this morning."""
+        """Start now, heading out, or a session started: nothing more this morning."""
         self.state = State.DONE
-        self.ringing = False

@@ -1,12 +1,12 @@
-"""The morning start in the running app: today's work, the routine timer, the alarm
-when the user isn't back, and the first session. Rules live in core/morning.py."""
+"""The morning start in the running app: today's work, the routine timer, "finished
+your routine?" when back early, the alarm at the deadline, and the first session.
+Rules live in core/morning.py."""
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Callable
 
-from aiwa.core.backlog import minutes_text
 from aiwa.core.morning import Action, MorningFlow
 from aiwa.core.store import Store
 from aiwa.ui.popup import Popup
@@ -38,33 +38,33 @@ class MorningPrompts:
         self.day = None
         self.flow = MorningFlow()
 
-    def step(self, now: datetime, active: bool) -> None:
+    def step(self, now: datetime, active: bool, in_session: bool) -> None:
         day = self.today(now)
         if day != self.day:  # a new day: a fresh morning, unless it was already handled
             self.day, self.flow = day, MorningFlow()
             first = self.first_activity(now)
             if self.store.get_state(f"morning:{day}") or (first and now - first > LATE):
                 self.flow.finish()
-        action = self.flow.step(now, active)
+        action = self.flow.step(now, active, in_session)
         if action is Action.GREET:
             self._mark_done()  # greet once per day, even if aiwa restarts
             self.popup.ask(
                 f"Good morning. {self.todays_work(now)}\n\nFirst, your morning routine: how long do you need?",
                 self._routine_answer, ROUTINE_OPTIONS,
             )
+        elif action is Action.CHECK:
+            options = [("Finished", "finished")]
+            if not self.flow.extended:
+                options.append(("10 more minutes", "more"))
+            self.popup.ask("Finished your morning routine?", self._check_answer, options)
         elif action is Action.ALARM:
             self.alarm.start()
             self.popup.ask(
-                "Your morning routine time is up. Time to come back to the computer.",
-                lambda _: None, [("I'm back", "ok")],
+                "Morning routine time is over. Time to start your deep work.",
+                self._alarm_answer, [("Start session", "start"), ("Heading out today", "out")],
             )
-        elif action is Action.WELCOME_BACK:
+        elif action is Action.SILENCE:
             self.alarm.stop()
-            self.popup.ask(
-                "Welcome back. Start your first deep-work session?",
-                lambda a: self.request_session() if a == "start" else None,
-                [("Start session", "start"), ("Later", "later")],
-            )
 
     def _routine_answer(self, answer: str) -> None:
         now = datetime.now(timezone.utc)
@@ -74,12 +74,26 @@ class MorningPrompts:
         elif answer == "out":
             self.flow.finish()
         else:
-            deadline = self.flow.start_routine(now, int(answer))
-            self.popup.ask(
-                f"Enjoy your routine. See you back by {deadline.astimezone():%H:%M} "
-                f"({minutes_text(int(answer))} + a little buffer).",
-                lambda _: None, [("OK", "ok")],
-            )
+            self.flow.start_routine(now, int(answer))
+
+    def _check_answer(self, answer: str) -> None:
+        if answer == "more":
+            self.flow.more_time()
+            return
+        self.popup.ask("Ready to start working?", self._ready_answer, [("Yes, start a session", "yes"), ("Not yet", "no")])
+
+    def _ready_answer(self, answer: str) -> None:
+        if answer == "yes":
+            self.flow.finish()
+            self.request_session()
+        else:
+            self.flow.finished_not_working()  # the alarm comes at the routine's deadline
+
+    def _alarm_answer(self, answer: str) -> None:
+        self.alarm.stop()
+        self.flow.finish()
+        if answer == "start":
+            self.request_session()
 
     def _mark_done(self) -> None:
         self.store.set_state(f"morning:{self.day}", datetime.now(timezone.utc).isoformat())
