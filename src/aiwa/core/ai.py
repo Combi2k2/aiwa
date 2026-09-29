@@ -1,69 +1,53 @@
-"""The AI helper for tasks (NVIDIA's hosted models via langchain).
+"""The AI helper for tasks (Google Gemini, via its REST API).
 
 It only helps the user with *their own* tasks: suggesting steps when a task
 needs breaking down, and a name for a new goal group. Suggestions are always
-shown for the user to edit; it never adds tasks on its own. Every call has a time
-limit; on any failure it returns None and the planning falls back to templates.
-After a failure the AI is skipped for a while, so a service that's down doesn't
-make the user wait for a timeout on every message.
+shown for the user to edit; it never adds tasks on its own.
+
+Models are tried in order (the first may be busy); every call has a time limit,
+and after all of them fail the AI is skipped for a while, so a service that's
+down doesn't make the user wait on every request. On failure it returns None.
 """
 
 from __future__ import annotations
 
 import json
-import re
 import time
-import warnings
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass
 
+import requests
+
+API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
 SYSTEM = (
-    "You are the planning assistant inside aiwa, a focus app. You help the user put their own plan "
-    "into words as small tasks, each doable in one focus session (under 50 minutes). Rules: never "
-    "invent tasks or decide for the user; keep the user's own wording; be brief and warm; plain "
-    "text, no markdown."
+    "You are the task assistant inside aiwa, a focus app. You help the user with their own tasks: "
+    "breaking a task into steps that each fit one focus session (under 50 minutes). Rules: never "
+    "invent work the task doesn't mention; don't make up specifics (chapter numbers, page counts, "
+    "names) that aren't given: keep a step general instead; keep the user's own wording; be brief; "
+    "plain text, no markdown."
 )
 
 REASONS = {
-    "vague": "too vague to estimate (unclear scope or end point, or it needs context you don't have)",
-    "too_long": "probably longer than one 50-minute focus session",
+    "vague": "too vague to estimate (unclear scope or end point)",
+    "too_long": "longer than one 50-minute focus session",
 }
 
 
 @dataclass(frozen=True)
 class AISettings:
-    model: str = "nvidia/nemotron-3.5-lightning-30b-a3b"
-    timeout: float = 30.0  # seconds; after this the templates take over
-    thinking: bool = True
-    retry_after: float = 300.0  # after a failure, skip the AI for this many seconds
+    model: str = "gemini-3.5-flash"
+    fallback_models: tuple[str, ...] = ("gemini-3.5-flash-lite",)  # tried when the first is busy
+    timeout: float = 20.0  # seconds per model; then the next one is tried
+    retry_after: float = 300.0  # after every model failed, skip the AI for this many seconds
 
 
 class TaskHelper:
-    """Suggestions for breaking down tasks and naming goal groups, from an NVIDIA-hosted model."""
+    """Suggestions for breaking down tasks and naming goal groups."""
 
     def __init__(self, api_key: str, settings: AISettings):
-        from langchain_nvidia_ai_endpoints import ChatNVIDIA  # imported only when the AI is used
-
+        self.api_key = api_key
         self.settings = settings
-        extra = {"reasoning_budget": 1024} if settings.thinking else {}
-        with warnings.catch_warnings():  # langchain warns about model kwargs it passes through as-is
-            warnings.simplefilter("ignore")
-            self.client = self._client(ChatNVIDIA, api_key, settings, extra)
-        self.pool = ThreadPoolExecutor(max_workers=1)
-        self.skip_until = 0.0  # monotonic time; the AI failed recently
-
-    @staticmethod
-    def _client(ChatNVIDIA, api_key: str, settings: AISettings, extra: dict):
-        return ChatNVIDIA(
-            model=settings.model,
-            api_key=api_key,
-            temperature=0.6,
-            top_p=0.95,
-            max_completion_tokens=2048,
-            chat_template_kwargs={"enable_thinking": settings.thinking},
-            **extra,
-        )
+        self.skip_until = 0.0  # monotonic time; every model failed recently
 
     def steps(self, title: str, description: str, estimate: int, reason: str) -> list[str] | None:
         """Possible steps to break a task into, for the user to edit and choose from."""
@@ -71,36 +55,47 @@ class TaskHelper:
         return _json_list(self._ask(
             f"The user's task: “{title}”{detail}\nTheir estimate: {estimate} minutes. It is "
             f"{REASONS.get(reason, reason)}. Suggest 2 to 5 concrete steps, each doable in under 50 "
-            "minutes, based only on what the task says (these are suggestions the user will edit). "
-            "Reply with only a JSON array of strings."
+            "minutes, based only on what the task says. Reply with only a JSON array of strings.",
+            json_reply=True,
         ))
 
     def group_name(self, title: str, description: str) -> str | None:
-        """A short name for a new goal this task belongs to (e.g. "Statistics final")."""
+        """A short name for the goal this task belongs to (e.g. "Statistics final")."""
         detail = f"\nDescription: {description}" if description else ""
         name = self._ask(
-            f"The user's task: “{title}”{detail}\nName the goal or project it belongs to in 1 to 3 "
-            "words. Reply with the name only."
+            f"The user's task: “{title}”{detail}\nName the goal or project this task serves, in 1 to 3 "
+            "words: the thing it moves forward (e.g. a product, course, exam or life area named or implied "
+            "in the task), not the kind of work (not \"Bug fixes\" or \"Emails\"). Reply with the name only."
         )
         return name.strip().strip('"“”.') if name else None
 
-    def _invoke(self, messages):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            return self.client.invoke(messages)
-
-    def _ask(self, prompt: str) -> str | None:
+    def _ask(self, prompt: str, json_reply: bool = False) -> str | None:
         if time.monotonic() < self.skip_until:
-            return None  # failed recently: don't make the user wait for another timeout
-        messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
-        future = self.pool.submit(self._invoke, messages)
+            return None  # failed recently: don't make the user wait for more timeouts
+        body = {
+            "systemInstruction": {"parts": [{"text": SYSTEM}]},
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.6, **({"responseMimeType": "application/json"} if json_reply else {})},
+        }
+        for model in (self.settings.model, *self.settings.fallback_models):
+            text = self._call(model, body)
+            if text:
+                return text
+        self.skip_until = time.monotonic() + self.settings.retry_after
+        return None
+
+    def _call(self, model: str, body: dict) -> str | None:
         try:
-            content = future.result(timeout=self.settings.timeout).content
-        except (FutureTimeout, Exception):  # a late answer keeps running in the background and is ignored
-            self.skip_until = time.monotonic() + self.settings.retry_after
+            response = requests.post(
+                API.format(model=model), headers={"x-goog-api-key": self.api_key}, json=body,
+                timeout=self.settings.timeout,
+            )
+            if response.status_code != 200:
+                return None  # e.g. 503 "high demand": try the next model
+            parts = response.json()["candidates"][0]["content"]["parts"]
+            return "".join(p.get("text", "") for p in parts if not p.get("thought")).strip() or None
+        except (requests.RequestException, KeyError, IndexError, ValueError):
             return None
-        content = re.sub(r"<think>.*?</think>", "", content or "", flags=re.S).strip()
-        return content or None
 
 
 def _json_list(text: str | None) -> list[str] | None:

@@ -39,7 +39,7 @@ day (weekdays 09:00 by default, `[rhythm]`), with a **chain** of days you kept i
 **Your task backlog** (tray → Tasks… / New task…): tasks come in over time, each with a
 deadline, your own estimate and a goal group. openjev checks each one; anything vague
 or longer than one 50-minute session is broken down (by you, with suggested steps from
-the AI when it's available). Each focus session works on one goal group, the most
+Gemini when it's available). Each focus session works on one goal group, the most
 urgent one (work left vs. deadlines, weighted by the group's priority), and hands over
 its tasks one at a time. In the evening aiwa asks whether anything new came up.
 

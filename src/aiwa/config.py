@@ -58,12 +58,13 @@ quota_max_minutes = 600      # 10 h
 day_starts = "04:00"     # when "today" begins; work after midnight counts toward the day before
 
 [ai]
-# The AI helper (NVIDIA's hosted models; key: NVIDIA_API_KEY in .env): suggests steps when
-# a task needs breaking down. Without it, or when it doesn't answer in time, you write the steps.
+# The AI helper (Google Gemini; key: GEMINI_API_KEY in .env): suggests steps when a task
+# needs breaking down. Models are tried in order when one is busy. Without it, or when
+# none answers in time, you write the steps yourself.
 enabled = true
-model = "nvidia/nemotron-3.5-lightning-30b-a3b"
-timeout_seconds = 30
-thinking = true
+model = "gemini-3.5-flash"
+fallback_models = ["gemini-3.5-flash-lite"]
+timeout_seconds = 20
 
 [rhythm]
 # A deep-work block at the same time every day (Deep Work's "rhythmic" style).
@@ -188,7 +189,7 @@ class Config:
     rhythm: RhythmParams = field(default_factory=RhythmParams)
     ai_enabled: bool = True
     ai: AISettings = field(default_factory=AISettings)
-    nvidia_api_key: str | None = None
+    gemini_api_key: str | None = None
     session: SessionParams = field(default_factory=SessionParams)
     low_focus_below: float = 0.35
     alarm_sound: Path | None = None  # None = built-in
@@ -251,10 +252,10 @@ def parse(raw: dict) -> Config:
         ai_enabled=raw.get("ai", {}).get("enabled", True),
         ai=AISettings(
             model=raw.get("ai", {}).get("model", AISettings.model),
+            fallback_models=tuple(raw.get("ai", {}).get("fallback_models", AISettings().fallback_models)),
             timeout=raw.get("ai", {}).get("timeout_seconds", AISettings.timeout),
-            thinking=raw.get("ai", {}).get("thinking", AISettings.thinking),
         ),
-        nvidia_api_key=os.environ.get("NVIDIA_API_KEY"),
+        gemini_api_key=os.environ.get("GEMINI_API_KEY"),
         session=parse_session(raw.get("session", {})),
         low_focus_below=raw.get("session", {}).get("low_focus_below", 0.35),
         alarm_sound=Path(raw["session"]["alarm_sound"]).expanduser() if raw.get("session", {}).get("alarm_sound") else None,

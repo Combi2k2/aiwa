@@ -166,7 +166,7 @@ Deep work still involves switching, but within a small set of related items (a
 - **Planning service** (`core/planning.py`, one interface): turn free text into tasks,
   break big tasks into small steps, pick the next task. A rule-based version first;
   an AI version later.
-- **AI integration later:** a text-generating model (e.g. Claude via the API) for
+- **AI integration later:** a text-generating model (now Google Gemini 3.5 Flash, 2026-09-29; NVIDIA's hosted models were unresponsive) for
   talking with the user and open tasks: planning, task breakdown, encouragement.
   openjev (multiple choice only) can't do this. Build features behind small
   interfaces so the AI can be swapped in without changing storage or UI flow.

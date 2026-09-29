@@ -119,7 +119,7 @@ class TaskForm(QWidget):
 
     def _suggest_group(self) -> None:
         text = self.title.text().strip()
-        if not text or self._group_touched or not self.suggest_group or not self._groups:
+        if not text or self._group_touched or not self.suggest_group:
             return
         self.group_hint.setText("suggesting a group…")
         self.background.run(lambda: self.suggest_group(text, sorted(self._groups)), self._got_group)
@@ -143,9 +143,10 @@ class TaskForm(QWidget):
         self.priority.setEnabled(bool(name))
         if known:
             self.priority.setCurrentText(self._groups[name])
-        self.group_hint.setText(
-            "suggested by aiwa (change it if it's wrong)" if suggested else ("" if known or not name else "new group")
-        )
+        if suggested:
+            self.group_hint.setText("suggested by aiwa (change it if it's wrong)" + ("" if known else ": a new group"))
+        else:
+            self.group_hint.setText("" if known or not name else "new group")
 
     # --- saving ---------------------------------------------------------------------------
 

@@ -64,7 +64,7 @@ class Aiwa:
             else None
         )
         self.assess = (lambda task: assess_task(openjev, task)) if openjev else None  # deep/shallow, size, vague?
-        self.suggest_group = (lambda task, groups: suggest_group(openjev, task, groups)) if openjev else None
+        self.suggest_group = self.make_group_suggester(openjev)
         self.helper = make_helper(config)  # the AI's step suggestions, or None
         self.classifier = ClassificationLoop(
             config,
@@ -122,6 +122,18 @@ class Aiwa:
         self.fast_timer = QTimer()
         self.fast_timer.timeout.connect(self.poll)
         self.fast_timer.start(FAST_POLL_MS)
+
+    def make_group_suggester(self, openjev):
+        """An existing group that fits (openjev), else a name for a new one (the AI)."""
+        helper = make_helper(self.config)
+        if openjev is None and helper is None:
+            return None
+
+        def suggest(task: str, groups: list[str]) -> str | None:
+            existing = suggest_group(openjev, task, groups) if openjev else None
+            return existing or (helper.group_name(task, "") if helper else None)
+
+        return suggest
 
     def tick(self) -> None:
         now = datetime.now(timezone.utc)
@@ -331,16 +343,12 @@ class Aiwa:
 
 
 def make_helper(config: Config):
-    """The AI's step suggestions, if enabled and a key is set; otherwise None."""
-    if not (config.ai_enabled and config.nvidia_api_key):
+    """The AI's step suggestions (Gemini), if enabled and a key is set; otherwise None."""
+    if not (config.ai_enabled and config.gemini_api_key):
         return None
-    try:
-        from aiwa.core.ai import TaskHelper
+    from aiwa.core.ai import TaskHelper
 
-        return TaskHelper(config.nvidia_api_key, config.ai)
-    except Exception as e:  # e.g. the langchain package is missing: plan with templates
-        print(f"AI helper unavailable ({e.__class__.__name__}); no step suggestions", flush=True)
-        return None
+    return TaskHelper(config.gemini_api_key, config.ai)
 
 
 def set_autostart(enabled: bool) -> None:

@@ -40,7 +40,7 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/backlog.py` | The task backlog's logic: atomic or not (vague / over 50 min), estimate mismatch, workable tasks (steps before their parent), urgency (work left ÷ time to deadline), group choice (urgency × priority), next task | tasks, groups, now → answers | `SESSION_MINUTES`, `MISMATCH_RATIO`, `PRIORITY_WEIGHT` | `test_backlog.py` |
 | `core/quota.py` | Daily deep-work quota: +1 h today past 80%; base +1 h after 3 days in a row past 80%; 4–10 h | deep minutes → quota | `[scoreboard] quota_*` | `test_backlog.py` |
 | `core/openjev.py` `assess_task`, `suggest_group` | Deep or shallow, size, specific or vague; which existing goal group a task belongs to | task text → `Assessment` / group name | — | `test_backlog.py` |
-| `core/ai.py` | The AI helper (NVIDIA-hosted model): suggested steps when breaking a task down, a name for a new group; never adds tasks itself; time limit + pause after failures | prompts → suggestions | `[ai]` | — |
+| `core/ai.py` | The AI helper (Google Gemini, 3.5 Flash → 3.5 Flash Lite when busy): suggested steps when breaking a task down, a name for a new goal group; never adds tasks itself; time limit, model fallback, pause after failures | prompts → suggestions | `[ai]` | `test_ai.py` |
 | `tasks_controller.py` | Task window, new/edit form, break-down dialog, evening "anything new?", one group's tasks per session | — | — | manual |
 | `rhythm_prompts.py` | The block reminder and the timing of the evening prompt | — | `planning_time` | manual |
 | `core/analyzer.py`, `core/rules/` | Notice patterns outside sessions (currently none active: parked until scheduled deep-work blocks) | `Segment`s → `Finding`s | per rule | `test_core.py` |
