@@ -153,3 +153,26 @@ Deep work still involves switching, but within a small set of related items (a
   `LowFocus` is the swap point).
 - A **full-screen mascot** instead of the popup, so continuing with a distraction
   isn't possible. Popups first, to test the behaviour.
+
+
+## Decisions 2026-09-29: daily rhythm, tasks, AI
+- **Depth philosophies are configuration, not labels.** All four stay on the list;
+  **rhythmic** is built first (daily block + chain, done).
+- **Evening prompt changes:** instead of "plan tomorrow" (time, task, warm-up), ask
+  **"What needs to be done tomorrow?"**; the user lists things freely and aiwa turns
+  them into tasks in **its own to-do list**. The block time comes from the rhythm settings.
+- **No warm-up reminder** before the block (to be removed from the current version).
+- **Tasks come up when a session starts**, one at a time: finish one, get the next.
+- **Planning service** (`core/planning.py`, one interface): turn free text into tasks,
+  break big tasks into small steps, pick the next task. A rule-based version first;
+  an AI version later.
+- **AI integration later:** a text-generating model (e.g. Claude via the API) for
+  talking with the user and open tasks: planning, task breakdown, encouragement.
+  openjev (multiple choice only) can't do this. Build features behind small
+  interfaces so the AI can be swapped in without changing storage or UI flow.
+- Agreed next items, in order: evening wind-down pokes (sleep anchor, escalation
+  opt-in), gradual shift of the block to the morning, learning daily routines from
+  "what was that?" questions after absences, calendar then Jira/Trello integration.
+
+**Open questions:** do unfinished tasks carry over automatically? Split big tasks
+by hand before the AI planner exists, or wait for it?
