@@ -72,7 +72,7 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   → detect "short idle → distraction app" pattern; gentle check-in, not a block
 - [x] **Work like Roosevelt** (short, intense deadlines)
   → "sprint" session: user picks a task and a tight deadline; countdown in tray
-  *(built 2026-09-29: tray → Sprint…; tight deadline (⅔ of the estimate first), countdown in the tray, "time's up" rings: done / 5 more / stop)*
+  *(built 2026-09-29: tray → Sprint…; the deadline is the task's own estimate, countdown in the tray, "time's up" rings: done / 5 more / stop)*
 - [x] **Productive meditation**
   → after a long session, suggest a walk with one problem to think about; ask for the result afterwards
   *(built 2026-09-29: thinking walk after good sessions or from the tray; counts as offline deep work; the outcome is kept as a note)*

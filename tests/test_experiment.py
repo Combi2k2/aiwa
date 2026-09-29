@@ -40,12 +40,9 @@ def test_grand_gesture_session_rules():
     assert p.away_end_after == timedelta(minutes=45) and p.build_up == SessionParams().build_up
 
 
-def test_sprint_deadlines_are_tight_and_count_down():
-    from aiwa.core.sprint import Sprint, deadline_options
+def test_sprint_counts_down_and_can_be_extended():
+    from aiwa.core.sprint import Sprint
 
-    assert deadline_options(40) == [25, 15, 40]  # ⅔ of 40 → 25 first
-    assert deadline_options(15) == [10, 15, 25, 40]  # never under 10
-    assert deadline_options(None) == [15, 25, 40]
     s = Sprint("Draft CV", 10, T0 + timedelta(minutes=25))
     assert s.left(T0) == timedelta(minutes=25) and not s.due(T0)
     assert s.due(T0 + timedelta(minutes=25))

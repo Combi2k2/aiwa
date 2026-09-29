@@ -405,8 +405,8 @@ Build order: morning start → routine questions → offline tasks → consisten
 - **Tools** (new kind group: search engine, AI assistant) take the category of the work
   just before them (within 10 min); switching still counts as switching.
 - **Most deep hours** (law of the vital few): top 3 deep sites/apps in the weekly review.
-- **Sprint** (Roosevelt): tray → Sprint…; deadline options with ⅔ of the task's estimate
-  first (min 10 min); countdown in the tray menu/tooltip; at the deadline the alarm rings:
+- **Sprint** (Roosevelt): tray → Sprint…; the deadline is the task's own estimate (a task
+  typed on the spot: 15 / 25 / 40 min); countdown in the tray menu/tooltip; at the deadline the alarm rings:
   Done (task done, session ends) / 5 more minutes / Stop.
 - **Hub-and-spoke**: in a session, 15 s on email / chat / a call → "… can wait until the
   session is over", once per visit.
