@@ -17,6 +17,8 @@ Called every few seconds with what is in focus. Two kinds of question:
 
 from __future__ import annotations
 
+from aiwa import platforms
+
 from concurrent.futures import Executor, Future
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -31,14 +33,6 @@ Suggest = Callable[[str], "tuple[Category, float] | None"]
 
 SUGGESTION_WAIT = timedelta(seconds=5)  # after `ask_after`, wait this long for openjev before asking without it
 ASK_LATER = timedelta(hours=2)
-
-# macOS system windows that come and go on their own; never worth a question.
-SYSTEM_APPS = {
-    "loginwindow", "Dock", "SystemUIServer", "ControlCenter", "NotificationCenter",
-    "UserNotificationCenter", "Spotlight", "ScreenSaverEngine", "SecurityAgent",
-    "CoreServicesUIAgent", "universalAccessAuthWarn", "WindowManager", "Window Server",
-}
-
 
 @dataclass(frozen=True)
 class Question:
@@ -56,6 +50,7 @@ class ClassificationLoop:
     ):
         self.config = config
         self.store = store
+        self.ignore_apps = set(platforms.current().SYSTEM_APPS) | set(config.ignore_apps)  # never worth a question
         self.suggest = suggest
         self.executor = executor
         self.suggest_after = timedelta(seconds=config.suggest_after_seconds)
@@ -120,7 +115,7 @@ class ClassificationLoop:
         return known if known and known.source == "openjev" else None
 
     def _question_for(self, segment: Segment | None) -> Question | None:
-        if segment is None or segment.away or not segment.app or segment.app in SYSTEM_APPS:
+        if segment is None or segment.away or not segment.app or segment.app in self.ignore_apps:
             return None
         if not self.config.is_tracked(segment.app, segment.title, segment.url):
             if self.config.has_track_rule(segment.app):

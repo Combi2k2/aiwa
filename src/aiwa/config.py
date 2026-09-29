@@ -113,6 +113,7 @@ min_gap_minutes = 45
 suggest_after_seconds = 2    # ask openjev about an unclassified app/website after this long on it
 ask_after_seconds = 10       # ask you, if still unclassified or openjev is unsure, after this long
 ask_track_after_seconds = 5  # ask whether to track an untracked app after using it this long
+ignore_apps = []             # apps never to ask about, on top of the OS's own system windows
 
 [openjev]
 # Optional: classify new apps/websites automatically before asking you. Only the
@@ -196,6 +197,7 @@ class Config:
     min_minutes_between_nudges: int = 20
     suggest_after_seconds: int = 2
     ask_after_seconds: int = 10
+    ignore_apps: list[str] = field(default_factory=list)
     ask_track_after_seconds: int = 5
     focus: FocusParams = field(default_factory=FocusParams)
     quota: QuotaParams = field(default_factory=QuotaParams)
@@ -256,6 +258,7 @@ def parse(raw: dict) -> Config:
         min_minutes_between_nudges=nudges.get("min_minutes_between", 20),
         suggest_after_seconds=classification.get("suggest_after_seconds", 2),
         ask_after_seconds=classification.get("ask_after_seconds", 10),
+        ignore_apps=list(classification.get("ignore_apps", [])),
         ask_track_after_seconds=classification.get("ask_track_after_seconds", 5),
         focus=parse_focus(focus),
         quota=QuotaParams(

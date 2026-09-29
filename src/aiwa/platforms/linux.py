@@ -14,6 +14,9 @@ DESKTOP_FILE = user_config_path("autostart") / "aiwa.desktop"
 ACTIVITYWATCH_DIRS = [Path.home() / "activitywatch", Path("/opt/activitywatch"), Path("/usr/lib/activitywatch")]
 EXECUTABLE_SUFFIX = ""
 
+# system windows that come and go on their own; never worth a question
+SYSTEM_APPS = {"gnome-shell", "plasmashell", "xfdesktop", "unknown"}
+
 
 def install_autostart(command: list[str]) -> None:
     DESKTOP_FILE.parent.mkdir(parents=True, exist_ok=True)

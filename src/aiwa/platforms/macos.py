@@ -12,6 +12,13 @@ ACTIVITYWATCH_DIRS = [
     Path.home() / "Applications" / "ActivityWatch.app" / "Contents" / "MacOS",
 ]
 EXECUTABLE_SUFFIX = ""
+
+# system windows that come and go on their own; never worth a question
+SYSTEM_APPS = {
+    "loginwindow", "Dock", "SystemUIServer", "ControlCenter", "NotificationCenter",
+    "UserNotificationCenter", "Spotlight", "ScreenSaverEngine", "SecurityAgent",
+    "CoreServicesUIAgent", "universalAccessAuthWarn", "WindowManager", "Window Server",
+}
 PLIST = Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
 
 

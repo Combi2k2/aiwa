@@ -189,3 +189,18 @@ def test_no_track_question_for_system_windows_or_partly_tracked_apps(tmp_path):
     for segment in [Segment(T0, T0, "loginwindow"), Segment(T0, T0, "Safari", "News")]:
         c.observe(segment, at(0))
         assert c.observe(segment, at(60)) is None
+
+
+def test_ignore_apps_setting_and_system_windows_are_never_asked_about(tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    from aiwa.config import Config
+    from aiwa.core.classifier import ClassificationLoop
+    from aiwa.core.events import Segment
+    from aiwa.core.store import Store
+
+    config = Config(ignore_apps=["Raycast"])
+    loop = ClassificationLoop(config, Store(tmp_path / "db"), None, None)
+    now = datetime.now(timezone.utc)
+    for app in ["Raycast", "loginwindow"]:
+        assert loop._question_for(Segment(now - timedelta(minutes=1), now, app)) is None

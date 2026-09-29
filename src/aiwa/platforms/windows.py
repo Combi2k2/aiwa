@@ -17,6 +17,12 @@ ACTIVITYWATCH_DIRS = [
 ]
 EXECUTABLE_SUFFIX = ".exe"
 
+# system windows that come and go on their own; never worth a question
+SYSTEM_APPS = {
+    "LockApp.exe", "SearchHost.exe", "SearchApp.exe", "ShellExperienceHost.exe",
+    "StartMenuExperienceHost.exe", "ApplicationFrameHost.exe", "explorer.exe", "Taskmgr.exe",
+}
+
 
 def install_autostart(command: list[str]) -> None:
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
