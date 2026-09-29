@@ -413,3 +413,15 @@ Build order: morning start → routine questions → offline tasks → consisten
 - Noted: `aw-watcher-input` (keystroke/click counts) to tell reading from idle/watching.
 - Craftsman approach: approach proposed, not built (see the conversation of 2026-09-29).
 - Depth philosophies other than rhythmic: not now.
+
+## Decisions 2026-09-30: craftsman check (testing the idea)
+- Per site/app per week: minutes; minutes inside sessions for each goal group (served);
+  notes there that became tasks (useful input → counts as served). Unserved = the rest.
+- Rule `WorthAsking`: unserved hours, threshold 2 h (50%), softness 30 min; never for
+  sites counted as deep (it's about network tools, not work tools).
+- Once per weekly review (a step after "what will you change?"): "facebook.com took 3h 07m
+  this week and 3h 07m served none of your goals. Does it substantially help any of
+  them?" → a goal group / A little / No; No → offer the 30-day test without it.
+  Each site asked once; later reviews show "Tools you judged: … (then vs. now)".
+- Caveat: sessions record their goal group only since 2026-09-29, so "served" is still
+  underestimated for older sessions.

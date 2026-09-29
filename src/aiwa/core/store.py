@@ -50,6 +50,13 @@ CREATE TABLE IF NOT EXISTS experiments (
     anyone_cared INTEGER,
     ended_at TEXT
 );
+CREATE TABLE IF NOT EXISTS tool_verdicts (
+    key TEXT PRIMARY KEY,       -- website domain or app
+    verdict TEXT NOT NULL,      -- 'serves' (a goal), 'little', 'no'
+    group_id INTEGER,           -- the goal it serves ('serves')
+    minutes_then REAL,          -- its time in the week it was judged
+    answered_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS ratings (
     id INTEGER PRIMARY KEY,
     asked_at TEXT NOT NULL,
@@ -261,6 +268,22 @@ class Store:
             "UPDATE experiments SET status = ?, better_with_it = ?, anyone_cared = ?, ended_at = ? WHERE id = ?",
             (status, better_with_it, anyone_cared, now.isoformat(), experiment_id))
         self._db.commit()
+
+    def set_verdict(self, key: str, verdict: str, group_id: int | None, minutes_then: float, now: datetime) -> None:
+        self._db.execute("INSERT OR REPLACE INTO tool_verdicts VALUES (?, ?, ?, ?, ?)",
+                         (key, verdict, group_id, minutes_then, now.isoformat()))
+        self._db.commit()
+
+    def verdicts(self) -> dict[str, tuple[str, int | None, float]]:
+        """key → (verdict, goal group, minutes in the week it was judged)."""
+        return {k: (v, g, m) for k, v, g, m in self._db.execute(
+            "SELECT key, verdict, group_id, minutes_then FROM tool_verdicts")}
+
+    def note_sources(self, since: datetime) -> list[tuple[str | None, str | None, bool]]:
+        """(source url, source app, became a task?) of notes since `since`."""
+        return [(u, a, t is not None) for u, a, t in self._db.execute(
+            "SELECT source_url, source_app, task_id FROM notes WHERE created_at >= ?",
+            (since.astimezone(timezone.utc).isoformat(),))]
 
     def set_kind(self, key: str, kind: str, source: str, set_at: datetime, confidence: float | None = None) -> None:
         self._db.execute(

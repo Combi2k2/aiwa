@@ -30,9 +30,11 @@ class ShutdownPrompts:
                  day_starts: time, wrap_up: Callable[[datetime], str], alarm,
                  weekly_review: Callable[[datetime], str | None] = lambda now: None,
                  save_review: Callable[[datetime, str | None], None] = lambda now, answer: None,
+                 tools_check: Callable[[datetime], None] = lambda now: None,
                  off_params: OffTimeParams = OffTimeParams()):
         self.weekly_review = weekly_review  # the week's facts when a weekly review is due, else None
         self.save_review = save_review
+        self.tools_check = tools_check  # the craftsman question, once per weekly review
         self.store = store
         self.alarm = alarm  # its own player (ui.sound.Alarm), for the wrap-up alarm
         self.shift_ending = shift_ending(params)
@@ -194,6 +196,11 @@ class ShutdownPrompts:
             self.popup.ask_text("Looking at this week: what will you change next week?", self._week_answer,
                                 placeholder="e.g. start the block before checking email", skip_label="Nothing")
             return
+        if self.stage == "tools":
+            self.stage = "tomorrow"
+            self.tools_check(now)  # may show a question; the ritual waits for it
+            if self._busy():
+                return
         if self.stage == "tomorrow":
             self.stage = None
             self.popup.ask(self.wrap_up(now), lambda _: self._complete(now), [("Shutdown complete", "done")])
@@ -211,7 +218,7 @@ class ShutdownPrompts:
 
     def _week_answer(self, text: str | None) -> None:
         self.save_review(datetime.now().astimezone(), text)
-        self.stage = "tomorrow"
+        self.stage = "tools"
 
     def _complete(self, now: datetime) -> None:
         self.store.set_state(self._key(now), "done")

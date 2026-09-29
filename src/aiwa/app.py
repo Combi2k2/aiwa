@@ -41,6 +41,8 @@ from aiwa.grand_prompts import GrandPrompts
 from aiwa.sprint_prompts import SprintPrompts
 from aiwa.core.sprint import Sprint
 from aiwa.core.hub import HubWatch
+from aiwa.core.craftsman import WorthAsking, pick, site_weeks
+from aiwa.craftsman_prompts import CraftsmanPrompts, verdict_lines
 from aiwa.core.grand import grand_session
 from aiwa.shutdown_prompts import ShutdownPrompts
 from aiwa.core.backlog import minutes_text
@@ -169,11 +171,15 @@ class Aiwa:
                                             next_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
         self.sprint: Sprint | None = None
         self.hub = HubWatch()
+        self.craftsman = CraftsmanPrompts(self.store, self.popup, start_test=lambda key: self.experiments.start_for(key))
+        self.worth_asking = WorthAsking()
+        self._week_sites: tuple[datetime, dict] | None = None
         self.meditation = MeditationPrompts(self.store, self.popup, self.start_walk,
                                             current_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
         self.shutdown = ShutdownPrompts(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
                                         self.shutdown_wrap_up, alarm=Alarm(config.alarm_sound, config.alarm_volume),
-                                        weekly_review=self.weekly_review, save_review=self.save_weekly_review)
+                                        weekly_review=self.weekly_review, save_review=self.save_weekly_review,
+                                        tools_check=self.tools_check)
         self.prompts = RhythmPrompts(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
             request_session=lambda: self.tasks.request_session(self.start_session),
@@ -297,7 +303,34 @@ class Aiwa:
             last_answer=last[1] if last else None, workdays=self.config.shutdown.days,
             shallow=(shallow, active), shallow_limit=self.config.shallow.limit,
             top_deep=self.usage(Category.DEEP, week_from, now),  # the vital few
+            tools=verdict_lines(self.week_sites(now), self.store.verdicts(), {g.id: g.name for g in self.store.groups()}),
         ))
+
+    def week_sites(self, now: datetime) -> dict:
+        """This week's sites/apps: time, time serving goals (core/craftsman.py). Cached briefly."""
+        if self._week_sites is not None and now - self._week_sites[0] < timedelta(minutes=10):
+            return self._week_sites[1]
+        today = self.rhythm.today(now)
+        _, week_from, _ = day_bounds(datetime.combine(week_start(today), time(12)).astimezone(), self.config.day_starts)
+        try:
+            segments = prepare(self.collector.between(week_from, now), self.config, self.categorizer)
+        except OSError:
+            return {}
+        segments = [s for s in segments if s.app != UNTRACKED]
+        sessions = [(a, b or now, g) for a, b, _, _, g in self.store.sessions_between(week_from, now)]
+        notes = []
+        for url, app, became_task in self.store.note_sources(week_from):
+            if url or app:
+                notes.append((Segment(now, now, app or "", url=url).key, became_task))
+        sites = site_weeks(segments, sessions, notes)
+        self._week_sites = (now, sites)
+        return sites
+
+    def tools_check(self, now: datetime) -> None:
+        """The craftsman question: one site per weekly review, picked by the rule."""
+        site = pick(self.week_sites(now), set(self.store.verdicts()), self.worth_asking)
+        if site is not None:
+            self.craftsman.ask(site, self.store.groups())
 
     def save_weekly_review(self, now: datetime, answer: str | None) -> None:
         self.store.add_weekly_review(week_start(self.rhythm.today(now)), now, answer)

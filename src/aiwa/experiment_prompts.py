@@ -51,6 +51,9 @@ class ExperimentPrompts:
             self._chosen, options + [("Cancel", "cancel")],
         )
 
+    def start_for(self, key: str) -> None:
+        self._chosen(key)
+
     def _chosen(self, key: str) -> None:
         if key == "cancel":
             return

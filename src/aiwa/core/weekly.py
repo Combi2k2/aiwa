@@ -44,6 +44,7 @@ class WeekFacts:
     shallow: tuple[int, int] | None = None  # (shallow minutes, active minutes) on this week's workdays
     shallow_limit: float = 0.30
     top_deep: list[tuple[str, int]] = field(default_factory=list)  # deep sites/apps by minutes, most first (the vital few)
+    tools: list[str] = field(default_factory=list)  # craftsman check: judged sites and their time now
     workdays: tuple[str, ...] = field(default=("mon", "tue", "wed", "thu", "fri"))
 
 
@@ -63,6 +64,8 @@ def review_text(f: WeekFacts) -> str:
             lines.append(f"No deep work on high-priority {', '.join(neglected)} this week.")
     if f.top_deep:
         lines.append("Most deep hours: " + " · ".join(f"{key} {minutes_text(m)}" for key, m in f.top_deep[:3]))
+    if f.tools:
+        lines.append("Tools you judged: " + "; ".join(f.tools))
     if f.shallow and f.shallow[1]:
         share = f.shallow[0] / f.shallow[1]
         lines.append(f"Shallow work: {share:.0%} of your time at the computer on workdays (limit {f.shallow_limit:.0%}).")
