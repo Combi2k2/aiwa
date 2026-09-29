@@ -7,7 +7,8 @@ Phases, by time since the start (the numbers are never shown to the user):
                          and if the user keeps going, poke every minute while focus stays low
     wrap-up (50 min+)    "time to wrap up", repeated every 2 minutes until the user stops
 
-In any phase: away for 5 minutes → alarm, repeated every minute until the user is back.
+In any phase: away for 5 minutes → alarm until the user is back; away for 10 minutes →
+the session ends by itself, as of when the user left.
 
 `FocusSession.step` turns (time, focus low?, away since) into one action; the app
 shows it. Whether focus is "low" is decided outside (see `LowFocus`), so the rule
@@ -28,6 +29,7 @@ class Action(Enum):
     ASK_DONE = "ask_done"  # past the build-up phase and focus dropped: finished?
     WRAP_UP = "wrap_up"  # past the healthy maximum: time to stop
     ALARM = "alarm"  # away too long during a session
+    END = "end"  # away so long that the session is over (ends as of when the user left)
 
 
 @dataclass(frozen=True)
@@ -39,6 +41,7 @@ class SessionParams:
     wrap_up_every: timedelta = timedelta(minutes=2)
     away_alarm_after: timedelta = timedelta(minutes=5)
     alarm_every: timedelta = timedelta(minutes=1)
+    away_end_after: timedelta = timedelta(minutes=10)
 
 
 class LowFocus(Protocol):
@@ -80,6 +83,8 @@ class FocusSession:
         p = self.params
         if away_since is not None:
             self.low_since = None  # focus is judged again once the user is back
+            if now - away_since >= p.away_end_after:
+                return Action.END
             if now - away_since >= p.away_alarm_after and _due(self.last_alarm, now, p.alarm_every):
                 self.last_alarm = now
                 return Action.ALARM

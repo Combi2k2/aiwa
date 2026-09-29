@@ -141,6 +141,8 @@ Deep work still involves switching, but within a small set of related items (a
   then pokes every minute if they keep going.
 - 50 min+: "time to wrap up", repeated every 2 min until stopped.
 - Away 5 min during a session: alarm sound, every minute until back.
+- Away 10 min (or the Mac asleep / aiwa not running that long): the session ends by
+  itself, as of when the user left (added after a session ran overnight).
 - The global "one nudge per 20 min" and "never while away" rules were Claude's
   defaults, not the user's; sessions ignore them. Non-session nudges (fragmentation,
   bouncing) are parked until scheduled deep-work blocks are designed.

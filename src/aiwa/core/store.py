@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     pokes INTEGER DEFAULT 0,
     asked_done INTEGER DEFAULT 0,
     wrap_ups INTEGER DEFAULT 0,
-    alarms INTEGER DEFAULT 0
+    alarms INTEGER DEFAULT 0,
+    ended_by TEXT               -- 'user', or 'away' (ended itself after 10 min away)
 );
 CREATE TABLE IF NOT EXISTS tracking (
     app_hash TEXT PRIMARY KEY,  -- sha256 of the app name
@@ -81,6 +82,8 @@ class Store:
         for column, kind in [("confidence", "REAL"), ("confirmed_at", "TEXT")]:
             if column not in columns:  # databases created by older versions
                 self._db.execute(f"ALTER TABLE categories ADD COLUMN {column} {kind}")
+        if "ended_by" not in {row[1] for row in self._db.execute("PRAGMA table_info(sessions)")}:
+            self._db.execute("ALTER TABLE sessions ADD COLUMN ended_by TEXT")
 
     def log_nudge(self, finding: Finding, shown_at: datetime) -> int:
         cur = self._db.execute(
@@ -213,11 +216,12 @@ class Store:
         ).fetchone()
         return (row[0], datetime.fromisoformat(row[1])) if row else None
 
-    def end_session(self, session_id: int, ended_at: datetime, counts: dict[str, int]) -> None:
+    def end_session(self, session_id: int, ended_at: datetime, counts: dict[str, int], ended_by: str) -> None:
         self._db.execute(
-            "UPDATE sessions SET ended_at = ?, pokes = ?, asked_done = ?, wrap_ups = ?, alarms = ? WHERE id = ?",
+            "UPDATE sessions SET ended_at = ?, pokes = ?, asked_done = ?, wrap_ups = ?, alarms = ?, ended_by = ?"
+            " WHERE id = ?",
             (ended_at.isoformat(), counts.get("poke", 0), counts.get("ask_done", 0),
-             counts.get("wrap_up", 0), counts.get("alarm", 0), session_id),
+             counts.get("wrap_up", 0), counts.get("alarm", 0), ended_by, session_id),
         )
         self._db.commit()
 

@@ -56,6 +56,7 @@ build_up_minutes = 25       # before this, a dip in focus gets a poke every minu
 wrap_up_minutes = 50        # after this, "time to wrap up" every 2 minutes until you stop
 low_focus_below = 0.35      # "low focus": 2-minute focus score below this
 away_alarm_minutes = 5      # away this long during a session → alarm, looping until you're back
+away_end_minutes = 10       # away this long → the session ends, as of when you left
 alarm_sound = ""            # path to a sound file (mp3/wav); empty = the built-in alarm clock
 alarm_volume = 1.0          # 0.0 – 1.0
 sound_on_low_focus = true   # ring the alarm while focus is slipping, until it's back
@@ -239,6 +240,7 @@ def parse_session(raw: dict) -> SessionParams:
         build_up=minutes("build_up_minutes", d.build_up),
         wrap_up=minutes("wrap_up_minutes", d.wrap_up),
         away_alarm_after=minutes("away_alarm_minutes", d.away_alarm_after),
+        away_end_after=minutes("away_end_minutes", d.away_end_after),
     )
 
 

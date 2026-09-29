@@ -34,7 +34,8 @@ from aiwa.ui.popup import Popup
 from aiwa.ui.sound import Alarm
 from aiwa.ui.tray import Tray
 
-SESSION_FOCUS_WINDOW = timedelta(minutes=2)  # short, so a dip in focus is noticed quickly
+SESSION_FOCUS_WINDOW = timedelta(minutes=2)
+NO_DATA_AFTER = timedelta(minutes=2)  # no activity recorded for this long = away (asleep, or ActivityWatch off)  # short, so a dip in focus is noticed quickly
 FAST_POLL_MS = 2_000  # how often to look at what's in focus right now (cheap: latest events only)
 RATING_OPTIONS = [(c.value.capitalize(), c.value) for c in Category] + [("Ask later", "later")]
 FOCUS_OPTIONS = [("1 scattered", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5 deeply focused", "5"), ("Skip", "skip")]
@@ -79,6 +80,7 @@ class Aiwa:
         self.alarm = Alarm(config.alarm_sound, config.alarm_volume)
         self.session: FocusSession | None = None
         self.session_id: int | None = None
+        self.session_checked: datetime | None = None  # last time the session was stepped
         running = self.store.running_session()  # resume a session that was running when aiwa stopped
         if running:
             self.session_id, started = running
@@ -134,11 +136,11 @@ class Aiwa:
             self.session = FocusSession(now, self.config.session)
             self.tray.set_session(0)
 
-    def stop_session(self, now: datetime) -> None:
+    def stop_session(self, now: datetime, ended_by: str = "user") -> None:
         if not self.session:
             return
         counts = {action.value: n for action, n in self.session.counts.items()}
-        self.store.end_session(self.session_id, now, counts)
+        self.store.end_session(self.session_id, now, counts, ended_by)
         self.session = self.session_id = None
         self.alarm.stop()
         self.tray.set_session(None)
@@ -148,16 +150,28 @@ class Aiwa:
     def step_session(self, segments: list[Segment], now: datetime) -> None:
         if not self.session:
             return
+        last_check, self.session_checked = self.session_checked, now
+        if last_check and now - last_check >= self.config.session.away_end_after:
+            # aiwa didn't run for a while (the Mac slept): the session ended back then
+            self.stop_session(last_check, ended_by="away")
+            return
         minutes = int(self.session.elapsed(now).total_seconds() // 60)
         self.tray.set_session(minutes)
         latest = max(segments, key=lambda s: s.end) if segments else None
-        away_since = latest.start if latest and latest.away else None
+        if latest is None or now - latest.end > NO_DATA_AFTER:
+            # no recent data: the Mac slept or ActivityWatch stopped; count it as away
+            away_since = max(latest.end if latest else self.session.started_at, self.session.started_at)
+        else:
+            away_since = latest.start if latest.away else None
         short = moment(segments, now, SESSION_FOCUS_WINDOW, self.config.focus)
         low = self.low_focus(short.intensity)
         if away_since is None and not low and self.alarm.ringing:
             self.alarm.stop()  # the user is back, and focused
         action = self.session.step(now, low, away_since)
         if action is Action.NONE:
+            return
+        if action is Action.END:
+            self.stop_session(away_since, ended_by="away")  # the session ended when the user left
             return
         if action is Action.ALARM:
             self.alarm.start()  # loops until the user is back or answers

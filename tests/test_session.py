@@ -62,6 +62,18 @@ def test_alarm_after_5_minutes_away_then_every_minute_until_back():
     assert run(s, 17.25, 18, low=False) == []  # back and focused: quiet
 
 
+def test_away_10_minutes_ends_the_session():
+    s = FocusSession(T0, SessionParams())
+    events = run(s, 10, 20, low=False, away_since=at(10))
+    assert events[-1] == (20.0, Action.END)
+    assert [a for _, a in events[:-1]] == [Action.ALARM] * 5  # minutes 15..19
+
+
+def test_waking_the_mac_after_hours_ends_the_session_right_away():
+    s = FocusSession(T0, SessionParams())
+    assert s.step(at(300), low_focus=False, away_since=at(12)) is Action.END
+
+
 def test_away_time_counts_from_when_the_user_left_not_when_it_was_noticed():
     s = FocusSession(T0, SessionParams())
     # ActivityWatch notices only after 3 minutes; the user actually left at minute 10
