@@ -116,3 +116,21 @@ def test_a_stale_away_period_after_coming_back_is_not_reported_again():
     # ActivityWatch still shows the old away period (from minute 0) for a moment
     tracker.step(at(10.5), False, away_since=at(0))
     assert tracker.step(at(11), True) is None  # not the same absence a second time
+
+
+def test_openjev_can_veto_the_question_when_sure_the_user_stayed():
+    from aiwa.core.rules.absence import StillThere
+
+    rule = StillThere(0.7)
+    assert rule.decide(0.74) and rule.decide(0.7) and not rule.decide(0.6)
+
+
+def test_context_for_openjev_has_no_titles():
+    from aiwa.core.events import Category, Segment
+    from aiwa.routine_prompts import RoutinePrompts
+
+    watching = Segment(at(0), at(1), "Google Chrome", "Episode 12 – secret title", "https://www.youtube.com/watch?v=x",
+                       category=Category.DISTRACTION)
+    text = RoutinePrompts._context(Absence(at(0), at(25)), watching)
+    assert "25 minutes" in text and "youtube.com (a website, which the person counts as distraction)" in text
+    assert "Episode" not in text and "watch?v" not in text

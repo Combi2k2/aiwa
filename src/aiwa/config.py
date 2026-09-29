@@ -81,6 +81,7 @@ kept_deep_minutes = 25       # a block is kept (chain +1) with this much deep wo
 [routines]
 # After an absence aiwa sometimes asks what it was (more often for longer ones).
 always_ask = false   # true: ask about every absence of 5+ minutes (for trying it out)
+skip_if_still_there = 0.7   # openjev at least this sure you stayed at the computer (watching…) → don't ask
 
 [shutdown]
 # The end of the workday (Deep Work's shutdown ritual): go through today's notes, write
@@ -224,6 +225,7 @@ class Config:
     shutdown: ShutdownParams = field(default_factory=ShutdownParams)
     shallow: BudgetParams = field(default_factory=BudgetParams)
     routines_always_ask: bool = False
+    routines_skip_if_still_there: float = 0.7
     ai_enabled: bool = True
     ai: AISettings = field(default_factory=AISettings)
     gemini_api_key: str | None = None
@@ -293,6 +295,7 @@ def parse(raw: dict) -> Config:
         shallow=BudgetParams(limit=raw.get("shallow", {}).get("limit", BudgetParams().limit),
                              softness=raw.get("shallow", {}).get("softness", BudgetParams().softness)),
         routines_always_ask=raw.get("routines", {}).get("always_ask", False),
+        routines_skip_if_still_there=raw.get("routines", {}).get("skip_if_still_there", 0.7),
         ai_enabled=raw.get("ai", {}).get("enabled", True),
         ai=AISettings(
             model=raw.get("ai", {}).get("model", AISettings.model),

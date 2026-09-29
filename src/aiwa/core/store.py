@@ -123,7 +123,8 @@ CREATE TABLE IF NOT EXISTS absences (
     start TEXT NOT NULL,            -- last activity before it (UTC)
     end TEXT NOT NULL,              -- first activity after it (UTC)
     activity TEXT,                  -- e.g. 'meal', 'shower' (core/routines.py TAXONOMY); NULL = unknown
-    source TEXT NOT NULL,           -- 'user' (picked), 'jev' (typed, openjev sure), 'jev_unsure' (openjev's guess,
+    source TEXT NOT NULL,           -- 'still_there' (openjev: they stayed at the computer, not asked),
+                                    -- 'user' (picked), 'jev' (typed, openjev sure), 'jev_unsure' (openjev's guess,
                                     -- not confirmed), 'typed' (no openjev), 'auto' (overnight → sleep), 'unasked', 'skipped'
     note TEXT,                      -- what the user typed
     confidence REAL                 -- openjev's probability for `activity`

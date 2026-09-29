@@ -13,6 +13,8 @@ from typing import Callable
 
 from aiwa.core.backlog import minutes_text
 from aiwa.core.routines import ACTIVITY_LABEL, Absence, AbsenceTracker, confident_activity, likely_options, overnight
+from aiwa.core.events import Segment
+from aiwa.core.rules.absence import StillThere
 from aiwa.core.store import Store
 from aiwa.ui.background import Background
 from aiwa.ui.popup import Popup
@@ -23,10 +25,14 @@ NO_FOLLOW_UPS = "routines_no_follow_ups"  # state key: the user turned off "whic
 
 class RoutinePrompts:
     def __init__(self, store: Store, popup: Popup, bedtime: time, day_starts: time, always_ask: bool = False,
-                 classify: Callable[[str], list[tuple[str, float]] | None] | None = None):
+                 classify: Callable[[str], list[tuple[str, float]] | None] | None = None,
+                 still_there: Callable[[str], float | None] | None = None, still_there_above: float = 0.7):
         self.store = store
         self.popup = popup
         self.classify = classify  # openjev: typed text → (activity, probability) best first; may be slow
+        self.still_there = still_there  # openjev: context → how likely they stayed at the computer; may be slow
+        self.skip_rule = StillThere(still_there_above)
+        self.left_on: Segment | None = None  # the last thing in focus while active
         self.background = Background()
         self.bedtime = bedtime
         self.day_starts = day_starts
@@ -38,7 +44,12 @@ class RoutinePrompts:
         """The user is back from working on an offline task (called before `step`)."""
         self.offline_task = True
 
-    def step(self, now: datetime, active: bool, away_since: datetime | None = None) -> None:
+    def step(self, now: datetime, active: bool, away_since: datetime | None = None,
+             in_focus: Segment | None = None) -> None:
+        """`in_focus`: the latest segment (what's on screen), to tell openjev what was open."""
+        before = self.left_on
+        if active and in_focus is not None and not in_focus.away:
+            self.left_on = in_focus
         absence = self.tracker.step(now, active, away_since)
         if absence is not None:
             if self.offline_task:
@@ -46,7 +57,13 @@ class RoutinePrompts:
             elif overnight(absence, self.bedtime, self.day_starts):
                 self.store.add_absence(absence.start, absence.end, "sleep", "auto")
             elif self.tracker.should_ask(absence):
-                self.pending = (self.store.add_absence(absence.start, absence.end, None, "unasked"), absence)
+                absence_id = self.store.add_absence(absence.start, absence.end, None, "unasked")
+                if self.still_there and before is not None:
+                    context = self._context(absence, before)
+                    self.background.run(lambda: self.still_there(context),
+                                        lambda p: self._checked(absence_id, absence, p))
+                else:
+                    self.pending = (absence_id, absence)
             else:
                 self.store.add_absence(absence.start, absence.end, None, "unasked")
         if active:
@@ -56,6 +73,21 @@ class RoutinePrompts:
             self.pending = None
             if now - absence.end <= STALE:
                 self._ask(absence_id, absence)
+
+    @staticmethod
+    def _context(absence: Absence, left_on: Segment) -> str:
+        """What openjev gets: the app or website (no titles), its category, how long, when."""
+        kind = "website" if left_on.url else "app"
+        counted = f", which the person counts as {left_on.category.value}" if left_on.category else ""
+        return (f"A person's computer got no keyboard or mouse input for "
+                f"{int(absence.duration.total_seconds() // 60)} minutes, starting at {absence.start.astimezone():%H:%M}. "
+                f"The window in focus the whole time: {left_on.key} (a {kind}{counted}).")
+
+    def _checked(self, absence_id: int, absence: Absence, probability: float | None) -> None:
+        if probability is not None and self.skip_rule.decide(probability):
+            self.store.set_absence_activity(absence_id, None, "still_there", confidence=probability)
+            return  # openjev is sure they were watching / listening / reading: don't ask
+        self.pending = (absence_id, absence)
 
     def _ask(self, absence_id: int, absence: Absence) -> None:
         self.popup.ask_text(

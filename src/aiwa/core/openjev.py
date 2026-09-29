@@ -156,3 +156,25 @@ def is_todo(client: Openjev, note: str) -> float | None:
         return float(a["noul"])
     except (requests.RequestException, KeyError, ValueError, TypeError):
         return None
+
+
+DOING_CRITERIA = {
+    "watching": "Watching a video or stream on the screen",
+    "listening": "Listening to audio, a call or a meeting at the computer",
+    "reading": "Reading or thinking in front of the screen",
+    "away": "Away from the computer: a break, a meal, errands, another room",
+}
+
+
+def still_there(client: Openjev, context: str) -> float | None:
+    """How likely the person stayed at the computer (watching, listening, reading) during a
+    stretch without input, from `context` (what was in focus, how long, when). None on failure."""
+    try:
+        a = client.ask(context, {"doing": {
+            "type": "choice",
+            "instructions": "During that time without input, what was the person most likely doing?",
+            "criteria": DOING_CRITERIA,
+        }})["doing"]
+        return 1.0 - float(a.get("probabilities", {}).get("away", 1.0 if a["choice"] == "away" else 0.0))
+    except (requests.RequestException, KeyError, ValueError, TypeError):
+        return None

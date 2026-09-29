@@ -25,3 +25,14 @@ class AskRule(Rule["Absence"]):
 
     def measure(self, absence: "Absence") -> float:
         return absence.duration.total_seconds() / 60
+
+
+class StillThere(Rule[float]):
+    """Don't ask after all: openjev is this sure the person stayed at the computer
+    (watching, listening, reading). The quantity is openjev's probability; hard threshold."""
+
+    def __init__(self, threshold: float = 0.7):
+        super().__init__(RuleParams(threshold=threshold))
+
+    def measure(self, probability: float) -> float:
+        return probability

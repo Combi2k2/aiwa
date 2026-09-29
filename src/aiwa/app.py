@@ -25,7 +25,7 @@ from aiwa.core.scoreboard import ScoreKeeper
 from aiwa.core.scoreboard.day import day_bounds, summarize_day
 from aiwa.core.rules.focus import LowAndNotRising
 from aiwa.core.session import Action, FocusSession
-from aiwa.core.openjev import Openjev, assess_task, classify_activity, is_todo, suggest_group
+from aiwa.core.openjev import Openjev, assess_task, classify_activity, is_todo, still_there, suggest_group
 from aiwa.core.quota import QuotaKeeper
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
@@ -144,7 +144,9 @@ class Aiwa:
         )
         self.routines = RoutinePrompts(self.store, self.popup, config.bedtime.wind_down, config.day_starts,
                                        always_ask=config.routines_always_ask,
-                                       classify=(lambda text: classify_activity(openjev, text)) if openjev else None)
+                                       classify=(lambda text: classify_activity(openjev, text)) if openjev else None,
+                                       still_there=(lambda context: still_there(openjev, context)) if openjev else None,
+                                       still_there_above=config.routines_skip_if_still_there)
         self.capture = CapturePrompts(self.store, self.popup, self.tasks,
                                       (lambda note: is_todo(openjev, note)) if openjev else None)
         self.reminder_prompts = ReminderPrompts(self.store, self.popup, config.day_starts)
@@ -200,7 +202,8 @@ class Aiwa:
         active = latest is not None and not latest.away and now - latest.end <= NO_DATA_AFTER
         self.bedtime.step(now, active)
         self.morning.step(now, active, in_session=self.session is not None)
-        self.routines.step(now, active, away_since=latest.start if latest is not None and latest.away else None)
+        self.routines.step(now, active, away_since=latest.start if latest is not None and latest.away else None,
+                           in_focus=latest)
         self.reminder_prompts.step(now, active, in_session=self.session is not None)
         self.update_scoreboard(now)
         self.capture.refresh()

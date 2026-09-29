@@ -357,3 +357,21 @@ Build order: morning start → routine questions → offline tasks → consisten
   the feature modules keep their params and use the rules (never the other way round).
 - Still plain hard checks inside the session state machine: away alarm (5 min), auto-end
   (10 min), wrap-up (50 min), and the offline grace.
+
+## Noted for later (2026-09-29, not a concern now)
+- Privacy text: README and the settings file say openjev only gets app/website names; it
+  now also gets task titles, typed notes and routine answers (and Gemini task titles and
+  descriptions). Update before wider sharing.
+- Windows polish: closing tabs/windows from "Did you finish…?" (currently "close it
+  yourself"); default tracked apps with Windows program names.
+- Waiting for data (in the aiwa task list, due 2026-10-13): personal low-focus
+  threshold (quantile of the user's 2-min scores); calibration report in the tray (20+
+  ratings).
+
+## Decisions 2026-09-29: openjev can veto "what did you do?"
+- When an absence would be asked about, openjev first gets the context: the app or
+  website in focus when input stopped (name + category only, no titles), how long, when;
+  and picks what the person was most likely doing: watching / listening / reading /
+  away. P(not away) ≥ 0.7 (`[routines] skip_if_still_there`, rule `StillThere`) → not
+  asked (stored as 'still_there'). Tested: streaming sites 0.71–0.74, code editor 0.60,
+  email 0.19. Sharper once the kind layer gives openjev the site's kind.
