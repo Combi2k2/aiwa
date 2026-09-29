@@ -89,7 +89,7 @@ class ShutdownPrompts:
         self.popup.ask(
             message or "Your workday seems to be winding down. Time to shut it down: today's notes, a wrap-up, tomorrow.",
             lambda a: self._offer_answer(a, now),
-            [("Start shutdown", "start"), ("Later (30 min)", "later")],
+            [("Start shutdown", "start"), ("Ask later", "later")],
         )
 
     def _offer_answer(self, answer: str, now: datetime) -> None:
