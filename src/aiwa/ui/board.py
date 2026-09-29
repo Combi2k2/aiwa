@@ -65,3 +65,10 @@ def sleep_lines(off: datetime | None, up: datetime | None) -> list[str]:
         return []
     fmt = lambda t: f"{t.astimezone():%H:%M}" if t else "–"
     return [f"Last night: off at {fmt(off)} · up at {fmt(up)}"]
+
+
+def consistency_lines(result) -> list[str]:
+    """How consistently sessions start at the usual time (core/consistency.py)."""
+    if result.usual is None:
+        return ["Start time: not enough days yet"]
+    return [f"Start time: usually {result.usual:%H:%M} · on time {result.consistent_days} of the last {result.days} days"]

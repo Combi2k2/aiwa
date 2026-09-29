@@ -32,13 +32,14 @@ from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
 from aiwa.bedtime_prompts import BedtimePrompts
 from aiwa.core.backlog import minutes_text
+from aiwa.core.consistency import ConsistencyParams, consistency
 from aiwa.core.offline import OfflineWork
 from aiwa.morning_prompts import MorningPrompts
 from aiwa.routine_prompts import RoutinePrompts
 from aiwa.rhythm_prompts import RhythmPrompts
 from aiwa.tasks_controller import TasksController
 from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, server_check
-from aiwa.ui.board import rhythm_lines, scoreboard_lines, sleep_lines, task_lines
+from aiwa.ui.board import consistency_lines, rhythm_lines, scoreboard_lines, sleep_lines, task_lines
 from aiwa.ui.popup import Popup
 from aiwa.ui.sound import Alarm
 from aiwa.ui.tray import Tray
@@ -310,10 +311,16 @@ class Aiwa:
         lines = (
             scoreboard_lines(today, self.config.focus.deep_threshold)
             + rhythm_lines(self.prompts.todays_block(now), now, self.rhythm.chain(now), self.rhythm.todays_sessions(now))
+            + consistency_lines(self.consistency(now))
             + task_lines(group, task, self.store.tasks_done_between(day_start, day_end))
             + sleep_lines(*self.bedtime.last_night(now))
         )
         self.tray.set_scoreboard(lines, today.goal_progress)
+
+    def consistency(self, now: datetime):
+        params = ConsistencyParams()
+        starts = self.rhythm.first_starts(now, params.history_days)
+        return consistency(starts, self.rhythm.today(now), self.config.day_starts, params)
 
     def poll(self) -> None:
         """Every few seconds: classify what's in focus, asking the user if needed."""

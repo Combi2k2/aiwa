@@ -224,6 +224,10 @@ Build order: morning start → routine questions → offline tasks → consisten
   the task is done; no "what was that?" question for that absence. Away longer than the
   estimate + 30 min → only the estimate is credited and the normal away rules apply.
   Pending: absences answered "offline work" prompting a session next time.
+- **Consistency line (built):** the tray shows "Start time: usually HH:MM · on time N of
+  the last 5 days". Usual = median of each day's first session start over 14 days (from 3
+  days with a session); on time = within ±30 min; a day without a session is not on time;
+  today counts once it has a session.
 
 - **Routine answers (update):** the user will *type* what they did, and openjev classifies
   it into the taxonomy; these questions will move into an inbox-style interface later

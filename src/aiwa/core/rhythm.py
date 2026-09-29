@@ -61,3 +61,12 @@ class Rhythm:
                 if not outcome.kept and back > 0:
                     break  # the chain can't reach further back than a broken day
         return chain_length(outcomes, today)
+
+    def first_starts(self, now: datetime, days: int) -> dict[date, datetime]:
+        """Each day's first session start over the last `days` days (today included)."""
+        _, today_start, today_end = day_bounds(now, self.day_starts)
+        result: dict[date, datetime] = {}
+        for started, *_ in self.store.sessions_between(today_start - timedelta(days=days - 1), today_end):
+            day, _, _ = day_bounds(started, self.day_starts)
+            result.setdefault(day, started)  # sessions come in start order
+        return result
