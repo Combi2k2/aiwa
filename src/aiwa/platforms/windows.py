@@ -39,3 +39,6 @@ def autostart_installed() -> bool:
     except FileNotFoundError:
         return False
 
+
+def lock_screen() -> None:
+    subprocess.Popen(["rundll32.exe", "user32.dll,LockWorkStation"])

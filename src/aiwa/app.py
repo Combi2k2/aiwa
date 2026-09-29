@@ -30,10 +30,11 @@ from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
 from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
+from aiwa.bedtime_prompts import BedtimePrompts
 from aiwa.rhythm_prompts import RhythmPrompts
 from aiwa.tasks_controller import TasksController
 from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, server_check
-from aiwa.ui.board import rhythm_lines, scoreboard_lines, task_lines
+from aiwa.ui.board import rhythm_lines, scoreboard_lines, sleep_lines, task_lines
 from aiwa.ui.popup import Popup
 from aiwa.ui.sound import Alarm
 from aiwa.ui.tray import Tray
@@ -111,6 +112,12 @@ class Aiwa:
             deep_minutes_today=lambda now: self.scores.today(now).deep_minutes,
             assess=self.assess, suggest_group=self.suggest_group, helper=self.helper,
         )
+        self.bedtime = BedtimePrompts(
+            self.store, config.bedtime, config.day_starts, self.popup,
+            # its own player: the session logic stops its alarm when focus is fine, which must not end this one
+            alarm=Alarm(config.alarm_sound, config.alarm_volume),
+            lock_screen=platforms.current().lock_screen, today=self.rhythm.today,
+        )
         self.prompts = RhythmPrompts(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
             request_session=lambda: self.tasks.request_session(self.start_session),
@@ -154,6 +161,9 @@ class Aiwa:
                 self.policy.record(finding, now)
                 self.show(finding, self.store.log_nudge(finding, now))
         self.step_session(segments, now)
+        latest = max(segments, key=lambda s: s.end) if segments else None
+        active = latest is not None and not latest.away and now - latest.end <= NO_DATA_AFTER
+        self.bedtime.step(now, active)
         self.update_scoreboard(now)
         self.prompts.check_block(now, in_session=self.session is not None)
         self.prompts.check_evening(now)
@@ -251,6 +261,7 @@ class Aiwa:
             scoreboard_lines(today, self.config.focus.deep_threshold)
             + rhythm_lines(self.prompts.todays_block(now), now, self.rhythm.chain(now), self.rhythm.todays_sessions(now))
             + task_lines(group, task, self.store.tasks_done_between(day_start, day_end))
+            + sleep_lines(*self.bedtime.last_night(now))
         )
         self.tray.set_scoreboard(lines, today.goal_progress)
 

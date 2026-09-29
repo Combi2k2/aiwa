@@ -57,3 +57,11 @@ def task_lines(group, task, done_today: int) -> list[str]:
         where = f" · {group.name}" if group else ""
         lines.append(f"Next: {task.title} (~{duration(task.estimate)}){where}")
     return lines
+
+
+def sleep_lines(off: datetime | None, up: datetime | None) -> list[str]:
+    """Last night's last activity and this morning's first."""
+    if off is None and up is None:
+        return []
+    fmt = lambda t: f"{t.astimezone():%H:%M}" if t else "–"
+    return [f"Last night: off at {fmt(off)} · up at {fmt(up)}"]

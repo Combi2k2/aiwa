@@ -5,6 +5,7 @@
     autostart_installed() -> bool
     ACTIVITYWATCH_DIRS: list[Path]   where ActivityWatch's programs usually are
     EXECUTABLE_SUFFIX: str           "" or ".exe"
+    lock_screen() -> None            lock the screen / put the display to sleep
 """
 
 import sys

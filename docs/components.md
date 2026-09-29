@@ -43,11 +43,13 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/ai.py` | The AI helper (Google Gemini, 3.5 Flash → 3.5 Flash Lite when busy): suggested steps when breaking a task down, a name for a new goal group; never adds tasks itself; time limit, model fallback, pause after failures | prompts → suggestions | `[ai]` | `test_ai.py` |
 | `tasks_controller.py` | Task window, new/edit form, break-down dialog, evening "anything new?", one group's tasks per session | — | — | manual |
 | `rhythm_prompts.py` | The block reminder and the timing of the evening prompt | — | `planning_time` | manual |
+| `core/bedtime.py` | Evening wind-down: phase (day / wind-down / hard stop), pokes every 5 min while active, one "10 more minutes" per night, alarm from the hard stop while active | now, active? → `Action` | `[bedtime]` | `test_bedtime.py` |
+| `bedtime_prompts.py` | Shows the wind-down popups, rings/silences its own alarm, locks the screen; logs last activity at night and first in the morning | — | — | manual |
 | `core/analyzer.py`, `core/rules/` | Notice patterns outside sessions (currently none active: parked until scheduled deep-work blocks) | `Segment`s → `Finding`s | per rule | `test_core.py` |
 | `core/policy.py` | Allow an interruption? | `Finding`, now, away → yes/no | `[nudges]` | `test_core.py` |
 | `services/activitywatch.py` | Run ActivityWatch's server + watchers instead of its own tray app; restart crashed ones; stop them on quit; take over leftovers from a crashed run | module commands → running processes | `[activitywatch] manage`, `modules` | `test_activitywatch.py` |
 | `ui/` | Tray (scoreboard + block/chain/session/task lines, `board.py`), task window / form / break-down dialog (`task_board.py`, `task_form.py`, `breakdown.py`), background calls (`background.py`), scope icon with progress ring (`icon.py`), popup, inbox, looping alarm sound (`sound.py`, Qt audio) | — | `[session] alarm_sound`, `alarm_volume` | `test_scoreboard.py` (text), manual |
-| `platforms/` | Per OS: start at login, where ActivityWatch is installed | — | — | manual |
+| `platforms/` | Per OS: start at login, where ActivityWatch is installed, lock the screen | — | — | manual |
 | `assets/sounds/` | Built-in sounds, with `CREDITS.md` (source and license) | — | — | — |
 | `app.py` | Wire it all into the tray app: 2 s poll + 15 s analysis; menu actions | — | `[analysis]` | manual |
 | `cli.py` | Entry point: `aiwa` starts the tray app | — | — | — |

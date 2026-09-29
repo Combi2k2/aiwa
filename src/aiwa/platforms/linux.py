@@ -5,6 +5,7 @@ the `awatcher` window watcher, and popups cannot choose their position.
 """
 
 import shlex
+import subprocess
 from pathlib import Path
 
 from platformdirs import user_config_path
@@ -32,3 +33,6 @@ def uninstall_autostart() -> None:
 def autostart_installed() -> bool:
     return DESKTOP_FILE.exists()
 
+
+def lock_screen() -> None:
+    subprocess.Popen(["loginctl", "lock-session"])

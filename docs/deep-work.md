@@ -106,7 +106,7 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
 - [x] **Daily deep-work quota** 4–10 h, rising past 80%
 - [x] **Tasks at session start**, handed over one at a time
 - [~] **AI integration**: conversation, planning, task breakdown, encouragement
-- [ ] **Sleep anchor**: wind-down pokes in the evening, escalating late at night; be
+- [x] **Sleep anchor**: wind-down pokes in the evening, escalating late at night; be
   understanding, not judgmental, when people resist it
 - [ ] **Warm-up before deep work**: good-habit shallow work (morning routine, email,
   news) as an on-ramp, time-boxed. (No separate warm-up reminder: decided 2026-09-29)

@@ -1,6 +1,7 @@
 """Start at login with a LaunchAgent (from the next login on), restarted by launchd if it crashes."""
 
 import plistlib
+import subprocess
 from pathlib import Path
 
 from platformdirs import user_log_path
@@ -45,3 +46,6 @@ def autostart_installed() -> bool:
     return PLIST.exists()
 
 
+def lock_screen() -> None:
+    # Display sleep locks the Mac when "require password after sleep" is on (the default).
+    subprocess.Popen(["pmset", "displaysleepnow"])

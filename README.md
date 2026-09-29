@@ -46,6 +46,11 @@ its tasks one at a time. In the evening aiwa asks whether anything new came up.
 The goal is a **daily deep-work quota** (4 h to start, up to 10 h): the scope's ring
 fills toward it, and aiwa shows what you did, never what's left.
 
+**An evening wind-down**, every night: from 22:00 a reminder every 5 minutes while you're
+still at the computer ("10 more minutes" once per night, or lock the screen), and from
+00:00 the alarm rings until you lock the screen or step away. The tray shows when you
+stopped last night and started this morning. Settings under `[bedtime]`.
+
 Everything else is in the tray menu: rate your focus,
 snoozing nudges, **Open settings…** (the config file) and **Start at login**.
 

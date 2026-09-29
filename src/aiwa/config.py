@@ -12,6 +12,7 @@ from pathlib import Path
 from platformdirs import user_config_path, user_data_path
 
 from aiwa.core.ai import AISettings
+from aiwa.core.bedtime import BedtimeParams
 from aiwa.core.events import Category
 from aiwa.core.focus.params import FocusParams
 from aiwa.core.quota import QuotaParams
@@ -74,6 +75,15 @@ start = "09:00"
 minutes = 90
 planning_time = "21:30"      # when to ask "anything new to take care of?"
 kept_deep_minutes = 25       # a block is kept (chain +1) with this much deep work in a session in it
+
+[bedtime]
+# An anchor for sleep, every night: from wind_down a reminder every 5 minutes while you're
+# active ("10 more minutes" once per night); from hard_stop the alarm rings while you're
+# active, until you lock the screen, the Mac sleeps or you step away.
+enabled = true
+wind_down = "22:00"
+hard_stop = "00:00"
+alarm = true
 
 [session]
 # Focus sessions are started and stopped from the tray; they have no fixed length.
@@ -187,6 +197,7 @@ class Config:
     quota: QuotaParams = field(default_factory=QuotaParams)
     day_starts: time = time(4, 0)
     rhythm: RhythmParams = field(default_factory=RhythmParams)
+    bedtime: BedtimeParams = field(default_factory=BedtimeParams)
     ai_enabled: bool = True
     ai: AISettings = field(default_factory=AISettings)
     gemini_api_key: str | None = None
@@ -249,6 +260,7 @@ def parse(raw: dict) -> Config:
         ),
         day_starts=time.fromisoformat(raw.get("scoreboard", {}).get("day_starts", "04:00")),
         rhythm=parse_rhythm(raw.get("rhythm", {})),
+        bedtime=parse_bedtime(raw.get("bedtime", {})),
         ai_enabled=raw.get("ai", {}).get("enabled", True),
         ai=AISettings(
             model=raw.get("ai", {}).get("model", AISettings.model),
@@ -271,6 +283,16 @@ def parse(raw: dict) -> Config:
             CategoryRule(Match.parse(c), Category(c["category"]))
             for c in raw.get("category", [])
         ],
+    )
+
+
+def parse_bedtime(raw: dict) -> BedtimeParams:
+    d = BedtimeParams()
+    return BedtimeParams(
+        enabled=raw.get("enabled", d.enabled),
+        wind_down=time.fromisoformat(raw["wind_down"]) if "wind_down" in raw else d.wind_down,
+        hard_stop=time.fromisoformat(raw["hard_stop"]) if "hard_stop" in raw else d.hard_stop,
+        alarm=raw.get("alarm", d.alarm),
     )
 
 
