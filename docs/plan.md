@@ -260,3 +260,13 @@ Build order: morning start → routine questions → offline tasks → consisten
   building integrations; this starts to overlap with general agent platforms (e.g.
   OpenClaw), so decide the boundary before building.
 - **Answers "offline work" outside a session:** an insight to use later.
+
+## Decisions 2026-09-29: shutdown ritual
+- At 18:00 on weekdays (`[shutdown]`), while active and not in a session: "Time to shut
+  down the workday" → Start shutdown / Later (30 min).
+- Steps: each of today's unreviewed notes (Make it a task / Keep as note) → "Anything
+  still on your mind for work?" (typed; each answer opens the task form; repeats until
+  "That's all") → today's deep work vs. quota, tomorrow's block and first task →
+  "Shutdown complete".
+- Once started, capture questions stop for the rest of the day, and the 21:30 "anything
+  new?" is skipped (it's still asked on non-workdays).

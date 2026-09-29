@@ -49,8 +49,11 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   → weekly review popup: deep hours vs. goal, what helped, what got in the way
 - [ ] **Be lazy (real downtime)**
   → after the workday ends, stop work nudges; flag work apps opened late in the evening
-- [ ] **Shutdown ritual**
+- [x] **Shutdown ritual**
   → end-of-day popup: review inbox, park open loops for tomorrow, say "done"
+  *(built 2026-09-29: 18:00 on weekdays; today's notes → task or note, what's on your
+  mind → tasks, today's deep work and tomorrow's start, "Shutdown complete"; then no
+  more capture questions that day)*
 
 ## Rule 2: Embrace boredom
 
