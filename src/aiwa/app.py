@@ -31,6 +31,8 @@ from aiwa.core.rules import default_rules
 from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
 from aiwa.bedtime_prompts import BedtimePrompts
+from aiwa.core.backlog import minutes_text
+from aiwa.morning_prompts import MorningPrompts
 from aiwa.rhythm_prompts import RhythmPrompts
 from aiwa.tasks_controller import TasksController
 from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, server_check
@@ -118,6 +120,12 @@ class Aiwa:
             alarm=Alarm(config.alarm_sound, config.alarm_volume),
             lock_screen=platforms.current().lock_screen, today=self.rhythm.today,
         )
+        self.morning = MorningPrompts(
+            self.store, self.popup, alarm=Alarm(config.alarm_sound, config.alarm_volume), today=self.rhythm.today,
+            first_activity=lambda now: self.bedtime.last_night(now)[1],
+            todays_work=self.todays_work,
+            request_session=lambda: self.tasks.request_session(self.start_session),
+        )
         self.prompts = RhythmPrompts(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
             request_session=lambda: self.tasks.request_session(self.start_session),
@@ -164,11 +172,22 @@ class Aiwa:
         latest = max(segments, key=lambda s: s.end) if segments else None
         active = latest is not None and not latest.away and now - latest.end <= NO_DATA_AFTER
         self.bedtime.step(now, active)
+        self.morning.step(now, active)
         self.update_scoreboard(now)
         self.prompts.check_block(now, in_session=self.session is not None)
         self.prompts.check_evening(now)
 
     # --- focus sessions --------------------------------------------------------
+
+    def todays_work(self, now: datetime) -> str:
+        """One line for the morning: the most urgent goal and its next task, and the deep-work goal."""
+        group, task = self.tasks.next_task(now)
+        quota = self.quota.today(now, self.scores.today(now).deep_minutes)
+        goal = f"Today's deep-work goal: {minutes_text(quota)}."
+        if task is None:
+            return f"{goal} Your task list is empty: add what needs doing."
+        where = f"{group.name}: " if group else ""
+        return f"{goal} First up: {where}{task.title} (~{minutes_text(task.estimate)})."
 
     def toggle_session(self) -> None:
         if self.session:

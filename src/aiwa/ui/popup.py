@@ -4,9 +4,10 @@ from typing import Callable
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGridLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
+BUTTONS_PER_ROW = 4
 NUDGE_OPTIONS = [("Got it", "ok"), ("Snooze 30 min", "snooze"), ("Dismiss", "dismissed")]
 
 
@@ -26,7 +27,7 @@ class Popup(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self._on_response: Callable[[str], None] | None = None
         self._label = QLabel(wordWrap=True)
-        self._buttons = QHBoxLayout()
+        self._buttons = QGridLayout()  # wraps onto more rows when there are many choices
         layout = QVBoxLayout(self)
         layout.addWidget(self._label)
         layout.addLayout(self._buttons)
@@ -43,10 +44,11 @@ class Popup(QWidget):
         self._on_response = on_response
         while self._buttons.count():
             self._buttons.takeAt(0).widget().deleteLater()
-        for text, response in options:
+        per_row = BUTTONS_PER_ROW if len(options) > BUTTONS_PER_ROW else max(len(options), 1)
+        for i, (text, response) in enumerate(options):
             button = QPushButton(text)
             button.clicked.connect(lambda _=False, r=response: self._respond(r))
-            self._buttons.addWidget(button)
+            self._buttons.addWidget(button, i // per_row, i % per_row)
         self.adjustSize()
         screen = QGuiApplication.primaryScreen().availableGeometry()
         self.move(screen.right() - self.width() - 16, screen.top() + 16)

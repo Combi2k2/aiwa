@@ -45,6 +45,8 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `rhythm_prompts.py` | The block reminder and the timing of the evening prompt | — | `planning_time` | manual |
 | `core/bedtime.py` | Evening wind-down: phase (day / wind-down / hard stop), pokes every 5 min while active, one "10 more minutes" per night, alarm from the hard stop while active | now, active? → `Action` | `[bedtime]` | `test_bedtime.py` |
 | `bedtime_prompts.py` | Shows the wind-down popups, rings/silences its own alarm, locks the screen; logs last activity at night and first in the morning | — | — | manual |
+| `core/morning.py` | Morning start: greet on the first activity, routine timer (time + clamp(20%, 5, 20) min), alarm when not back, then suggest the first session | now, active? → `Action` | — | `test_morning.py` |
+| `morning_prompts.py` | Shows today's work and the routine question, rings its own alarm, suggests the session; once per day | — | — | manual |
 | `core/analyzer.py`, `core/rules/` | Notice patterns outside sessions (currently none active: parked until scheduled deep-work blocks) | `Segment`s → `Finding`s | per rule | `test_core.py` |
 | `core/policy.py` | Allow an interruption? | `Finding`, now, away → yes/no | `[nudges]` | `test_core.py` |
 | `services/activitywatch.py` | Run ActivityWatch's server + watchers instead of its own tray app; restart crashed ones; stop them on quit; take over leftovers from a crashed run | module commands → running processes | `[activitywatch] manage`, `modules` | `test_activitywatch.py` |
