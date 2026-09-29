@@ -91,9 +91,16 @@ class AbsenceTracker:
         self.rng = rng or random.Random()
         self.always_ask = always_ask  # for trying it out: ask about every absence of 5+ minutes
 
-    def step(self, now: datetime, active: bool) -> Absence | None:
-        """Call regularly; returns an absence when the user comes back from one."""
+    def step(self, now: datetime, active: bool, away_since: datetime | None = None) -> Absence | None:
+        """Call regularly; returns an absence when the user comes back from one.
+
+        `away_since`: when ActivityWatch says the user left (their last input). It
+        marks "away" only after a few idle minutes, so this is earlier than the
+        moment aiwa first sees them as away.
+        """
         if not active:
+            if away_since is not None and self.last_active is not None:
+                self.last_active = min(self.last_active, away_since)
             return None
         previous, self.last_active = self.last_active, now
         if previous is not None and now - previous >= MIN_ABSENCE:

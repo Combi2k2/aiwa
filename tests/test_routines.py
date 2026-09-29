@@ -83,3 +83,13 @@ def test_absences_round_trip(tmp_path):
 def test_always_ask_for_trying_it_out():
     tracker = AbsenceTracker(random.Random(1), always_ask=True)
     assert all(tracker.should_ask(Absence(at(0), at(6))) for _ in range(20))
+
+
+def test_absence_starts_at_the_last_input_not_when_away_was_noticed():
+    tracker = AbsenceTracker()
+    tracker.step(at(0), True)
+    tracker.step(at(1), True)
+    tracker.step(at(2), True)  # idle from here, but ActivityWatch still says "active" for 3 minutes
+    tracker.step(at(4), True)
+    tracker.step(at(5), False, away_since=at(2))  # now marked away, backdated to the last input
+    assert tracker.step(at(9), True) == Absence(at(2), at(9))

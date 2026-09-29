@@ -26,8 +26,8 @@ class RoutinePrompts:
         self.tracker = AbsenceTracker(always_ask=always_ask)
         self.pending: tuple[int, Absence] | None = None  # waiting for the popup to be free
 
-    def step(self, now: datetime, active: bool) -> None:
-        absence = self.tracker.step(now, active)
+    def step(self, now: datetime, active: bool, away_since: datetime | None = None) -> None:
+        absence = self.tracker.step(now, active, away_since)
         if absence is not None:
             if overnight(absence, self.bedtime, self.day_starts):
                 self.store.add_absence(absence.start, absence.end, "sleep", "auto")

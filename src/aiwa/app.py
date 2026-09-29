@@ -176,7 +176,7 @@ class Aiwa:
         active = latest is not None and not latest.away and now - latest.end <= NO_DATA_AFTER
         self.bedtime.step(now, active)
         self.morning.step(now, active, in_session=self.session is not None)
-        self.routines.step(now, active)
+        self.routines.step(now, active, away_since=latest.start if latest is not None and latest.away else None)
         self.update_scoreboard(now)
         self.prompts.check_block(now, in_session=self.session is not None)
         self.prompts.check_evening(now)
