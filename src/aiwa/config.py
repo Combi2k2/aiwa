@@ -14,6 +14,7 @@ from platformdirs import user_config_path, user_data_path
 from aiwa.core.events import Category
 from aiwa.core.focus.params import FocusParams
 from aiwa.core.sampling import SamplingParams
+from aiwa.core.schedule import RhythmParams
 from aiwa.core.session import SessionParams
 
 CONFIG_PATH = user_config_path("aiwa") / "config.toml"
@@ -49,6 +50,16 @@ deep_threshold = 0.6            # a minute counts as deep work at this intensity
 [scoreboard]
 daily_goal_minutes = 60  # deep minutes to aim for each day (shown as a ring on the tray icon)
 day_starts = "04:00"     # when "today" begins; work after midnight counts toward the day before
+
+[rhythm]
+# A deep-work block at the same time every day (Deep Work's "rhythmic" style).
+# Each evening aiwa asks for tomorrow's plan; a plan overrides these defaults for that day.
+days = ["mon", "tue", "wed", "thu", "fri"]
+start = "09:00"
+minutes = 90
+planning_time = "21:30"      # when to ask for tomorrow's plan
+warmup_minutes = 20          # remind about the planned warm-up this long before the block
+kept_deep_minutes = 25       # a block is kept (chain +1) with this much deep work in a session in it
 
 [session]
 # Focus sessions are started and stopped from the tray; they have no fixed length.
@@ -161,6 +172,7 @@ class Config:
     focus: FocusParams = field(default_factory=FocusParams)
     daily_goal_minutes: int = 60
     day_starts: time = time(4, 0)
+    rhythm: RhythmParams = field(default_factory=RhythmParams)
     session: SessionParams = field(default_factory=SessionParams)
     low_focus_below: float = 0.35
     alarm_sound: Path | None = None  # None = built-in
@@ -215,6 +227,7 @@ def parse(raw: dict) -> Config:
         focus=parse_focus(focus),
         daily_goal_minutes=raw.get("scoreboard", {}).get("daily_goal_minutes", 60),
         day_starts=time.fromisoformat(raw.get("scoreboard", {}).get("day_starts", "04:00")),
+        rhythm=parse_rhythm(raw.get("rhythm", {})),
         session=parse_session(raw.get("session", {})),
         low_focus_below=raw.get("session", {}).get("low_focus_below", 0.35),
         alarm_sound=Path(raw["session"]["alarm_sound"]).expanduser() if raw.get("session", {}).get("alarm_sound") else None,
@@ -230,6 +243,19 @@ def parse(raw: dict) -> Config:
             CategoryRule(Match.parse(c), Category(c["category"]))
             for c in raw.get("category", [])
         ],
+    )
+
+
+def parse_rhythm(raw: dict) -> RhythmParams:
+    d = RhythmParams()
+    clock = lambda key, default: time.fromisoformat(raw[key]) if key in raw else default
+    return RhythmParams(
+        days=tuple(day.lower()[:3] for day in raw.get("days", d.days)),
+        start=clock("start", d.start),
+        minutes=raw.get("minutes", d.minutes),
+        planning_time=clock("planning_time", d.planning_time),
+        warmup_minutes=raw.get("warmup_minutes", d.warmup_minutes),
+        kept_deep_minutes=raw.get("kept_deep_minutes", d.kept_deep_minutes),
     )
 
 

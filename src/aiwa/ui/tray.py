@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
 from aiwa.ui.icon import scope_icon
 
-SCOREBOARD_LINES = 4
+SCOREBOARD_LINES = 8  # room for the day's numbers plus block, chain and sessions
 
 
 class Tray:
@@ -16,6 +16,7 @@ class Tray:
     def __init__(
         self,
         on_session: Callable[[], None],
+        on_plan: Callable[[], None],
         on_rate: Callable[[], None],
         on_inbox: Callable[[], None],
         on_snooze: Callable[[], None],
@@ -33,6 +34,7 @@ class Tray:
             line.setVisible(False)
         self._menu.addSeparator()
         self._session = self._add("Start focus session", on_session)
+        self._add("Plan tomorrow…", on_plan)
         self._add("Rate my focus now…", on_rate)
         self._add("Small-task inbox", on_inbox)
         self._add("Snooze nudges for 1 hour", on_snooze)
@@ -63,9 +65,10 @@ class Tray:
         self._icon.setToolTip(f"aiwa: {text}")
 
     def set_scoreboard(self, lines: list[str], progress: float) -> None:
-        for action, text in zip(self._board, lines):
-            action.setText(text)
-            action.setVisible(True)
+        for i, action in enumerate(self._board):
+            action.setVisible(i < len(lines))
+            if i < len(lines):
+                action.setText(lines[i])
         if round(progress, 2) != round(self._progress, 2):  # redraw only when it visibly changes
             self._progress = progress
             self._icon.setIcon(scope_icon(progress))

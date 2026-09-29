@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
+from aiwa.core.history import SessionSummary
+from aiwa.core.schedule import Block
 from aiwa.core.scoreboard import DayScore
 
 ACTIVITY_ORDER = ["deep", "shallow", "distraction", "neutral", "unclassified", "untracked", "away"]
@@ -25,3 +29,23 @@ def scoreboard_lines(day: DayScore, threshold: float) -> list[str]:
         f"Goal {day.deep_minutes}/{day.goal_minutes} min  {'▓' * filled}{'░' * (bar_len - filled)}  {day.goal_progress:.0%}",
         f"Time on: {activities}" if activities else "Time on: nothing recorded yet",
     ]
+
+
+def rhythm_lines(block: Block | None, now: datetime, chain: int, sessions: list[SessionSummary]) -> list[str]:
+    lines = []
+    if block is None:
+        lines.append("No deep-work block today")
+    else:
+        span = f"{block.start.astimezone():%H:%M}–{block.end.astimezone():%H:%M}"
+        task = f" · {block.task}" if block.task else ""
+        if now < block.start:
+            lines.append(f"Deep-work block today: {span}{task}")
+        elif now < block.end:
+            lines.append(f"Deep-work block now: {span}{task}")
+        else:
+            lines.append(f"Deep-work block today was {span}")
+    lines.append(f"Chain: {chain} day{'s' if chain != 1 else ''} in a row")
+    if sessions:
+        deep = sum(s.deep_minutes for s in sessions)
+        lines.append(f"Sessions today: {len(sessions)} · {deep} min deep")
+    return lines

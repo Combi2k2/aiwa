@@ -33,6 +33,12 @@ on, reminds you to wrap up after 50 minutes, and sounds an alarm if you're away
 for 5 minutes (it keeps ringing until you're back; choose your own sound with
 `alarm_sound` in the settings). Details in `docs/plan.md`.
 
+**A daily deep-work block** (Deep Work's "rhythmic" style): at 21:30 aiwa asks you
+to plan tomorrow (block start, the one task, a warm-up). In the morning it reminds
+you of the warm-up, then asks to start a focus session when the block begins. The
+tray shows the block and your **chain** of days in a row that you kept it. Defaults
+(weekdays 09:00, 90 min) are under `[rhythm]` in the settings.
+
 Everything else is in the tray menu: rate your focus, the small-task inbox,
 snoozing nudges, **Open settings…** (the config file) and **Start at login**.
 

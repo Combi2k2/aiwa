@@ -26,16 +26,18 @@ from aiwa.core.session import Action, BelowThreshold, FocusSession
 from aiwa.core.openjev import Openjev
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
+from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
+from aiwa.rhythm_prompts import RhythmPrompts
 from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, server_check
-from aiwa.ui.board import scoreboard_lines
+from aiwa.ui.board import rhythm_lines, scoreboard_lines
 from aiwa.ui.inbox import Inbox
 from aiwa.ui.popup import Popup
 from aiwa.ui.sound import Alarm
 from aiwa.ui.tray import Tray
 
-SESSION_FOCUS_WINDOW = timedelta(minutes=2)
-NO_DATA_AFTER = timedelta(minutes=2)  # no activity recorded for this long = away (asleep, or ActivityWatch off)  # short, so a dip in focus is noticed quickly
+SESSION_FOCUS_WINDOW = timedelta(minutes=2)  # short, so a dip in focus is noticed quickly
+NO_DATA_AFTER = timedelta(minutes=2)  # no activity recorded for this long = away (asleep, or ActivityWatch off)
 FAST_POLL_MS = 2_000  # how often to look at what's in focus right now (cheap: latest events only)
 RATING_OPTIONS = [(c.value.capitalize(), c.value) for c in Category] + [("Ask later", "later")]
 FOCUS_OPTIONS = [("1 scattered", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5 deeply focused", "5"), ("Skip", "skip")]
@@ -85,8 +87,10 @@ class Aiwa:
         if running:
             self.session_id, started = running
             self.session = FocusSession(started, config.session)
+        self.rhythm = Rhythm(self.store, config.rhythm, config.day_starts, config.focus.deep_threshold)
         self.tray = Tray(
             on_session=self.toggle_session,
+            on_plan=lambda: self.prompts.open_planner(),
             on_rate=lambda: self.ask_focus("manual"),
             on_inbox=self.open_inbox,
             on_snooze=self.snooze_hour,
@@ -96,6 +100,9 @@ class Aiwa:
             on_quit=QApplication.quit,
         )
         self.popup = Popup()
+        self.prompts = RhythmPrompts(
+            self.store, self.rhythm, config.rhythm, config.day_starts, self.popup, start_session=self.start_session
+        )
         self.inbox = Inbox(self.store)
         self.timer = QTimer()
         self.timer.timeout.connect(self.tick)
@@ -122,19 +129,28 @@ class Aiwa:
             if self.policy.allow(finding, now, away=away):
                 self.policy.record(finding, now)
                 self.show(finding, self.store.log_nudge(finding, now))
-        self.update_scoreboard(now)
         self.step_session(segments, now)
+        self.update_scoreboard(now)
+        self.prompts.check_block(now, in_session=self.session is not None)
+        if self.prompts.planning_due(now) and not self.popup.isVisible():
+            self.prompts.open_planner(now)
 
     # --- focus sessions --------------------------------------------------------
 
     def toggle_session(self) -> None:
-        now = datetime.now(timezone.utc)
         if self.session:
-            self.stop_session(now)
+            self.stop_session(datetime.now(timezone.utc))
         else:
-            self.session_id = self.store.start_session(now)
-            self.session = FocusSession(now, self.config.session)
-            self.tray.set_session(0)
+            self.start_session()
+
+    def start_session(self) -> None:
+        if self.session:
+            return
+        now = datetime.now(timezone.utc)
+        self.session_id = self.store.start_session(now)
+        self.session = FocusSession(now, self.config.session)
+        self.session_checked = now
+        self.tray.set_session(0)
 
     def stop_session(self, now: datetime, ended_by: str = "user") -> None:
         if not self.session:
@@ -203,7 +219,10 @@ class Aiwa:
         except (OSError, RuntimeError):
             return
         today = self.scores.today(now)
-        self.tray.set_scoreboard(scoreboard_lines(today, self.config.focus.deep_threshold), today.goal_progress)
+        lines = scoreboard_lines(today, self.config.focus.deep_threshold) + rhythm_lines(
+            self.prompts.todays_block(now), now, self.rhythm.chain(now), self.rhythm.todays_sessions(now)
+        )
+        self.tray.set_scoreboard(lines, today.goal_progress)
 
     def poll(self) -> None:
         """Every few seconds: classify what's in focus, asking the user if needed."""

@@ -6,7 +6,7 @@ import hashlib
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from pathlib import Path
 
 from aiwa.core.events import Category, Finding
@@ -55,6 +55,18 @@ CREATE TABLE IF NOT EXISTS sessions (
     wrap_ups INTEGER DEFAULT 0,
     alarms INTEGER DEFAULT 0,
     ended_by TEXT               -- 'user', or 'away' (ended itself after 10 min away)
+);
+CREATE TABLE IF NOT EXISTS plans (
+    day TEXT PRIMARY KEY,       -- the day being planned (YYYY-MM-DD, aiwa's day)
+    block_start TEXT NOT NULL,  -- HH:MM
+    task TEXT,
+    warmup TEXT,
+    made_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS block_log (
+    day TEXT NOT NULL,
+    action TEXT NOT NULL,       -- 'skipped'
+    at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS tracking (
     app_hash TEXT PRIMARY KEY,  -- sha256 of the app name
@@ -224,6 +236,38 @@ class Store:
              counts.get("wrap_up", 0), counts.get("alarm", 0), ended_by, session_id),
         )
         self._db.commit()
+
+    def save_plan(self, day: date, block_start: time, task: str, warmup: str, made_at: datetime) -> None:
+        self._db.execute(
+            "INSERT OR REPLACE INTO plans (day, block_start, task, warmup, made_at) VALUES (?, ?, ?, ?, ?)",
+            (day.isoformat(), block_start.strftime("%H:%M"), task, warmup, made_at.isoformat()),
+        )
+        self._db.commit()
+
+    def get_plan(self, day: date):
+        from aiwa.core.schedule import Plan
+
+        row = self._db.execute("SELECT block_start, task, warmup FROM plans WHERE day = ?", (day.isoformat(),)).fetchone()
+        return Plan(day, time.fromisoformat(row[0]), row[1] or "", row[2] or "") if row else None
+
+    def log_block(self, day: date, action: str, at: datetime) -> None:
+        self._db.execute("INSERT INTO block_log (day, action, at) VALUES (?, ?, ?)", (day.isoformat(), action, at.isoformat()))
+        self._db.commit()
+
+    def block_actions(self, day: date) -> set[str]:
+        return {a for (a,) in self._db.execute("SELECT action FROM block_log WHERE day = ?", (day.isoformat(),))}
+
+    def sessions_between(self, start: datetime, end: datetime) -> list[tuple]:
+        """(started_at, ended_at or None, pokes, ended_by) for sessions started in [start, end)."""
+        rows = self._db.execute(
+            "SELECT started_at, ended_at, pokes, ended_by FROM sessions WHERE started_at >= ? AND started_at < ?"
+            " ORDER BY started_at",
+            (start.astimezone(timezone.utc).isoformat(), end.astimezone(timezone.utc).isoformat()),
+        ).fetchall()
+        return [
+            (datetime.fromisoformat(a), datetime.fromisoformat(b) if b else None, pokes or 0, by)
+            for a, b, pokes, by in rows
+        ]
 
     def forget_tracking(self, app: str) -> None:
         self._db.execute("DELETE FROM tracking WHERE app_hash = ?", (_hash(app),))

@@ -34,10 +34,14 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/scoreboard/day.py` | A day's summary: deep minutes, streaks, time per activity, goal progress | minute entries → `DayScore` | `deep_threshold`, `[scoreboard]` | `test_scoreboard.py` |
 | `core/scoreboard/keeper.py` | Score only new minutes (fill in the day at start); today's score | now → saved minutes; `DayScore` | `[scoreboard] day_starts`, `daily_goal_minutes` | `test_scoreboard.py` |
 | `core/session.py` | Focus session behaviour: pokes while focus is low (build-up), "done?" then pokes (free), wrap-up reminders (50 min+), alarm when away | time, low focus?, away since → one `Action` | `[session]` | `test_session.py` |
+| `core/schedule.py` | Today's deep-work block (evening plan, else the default rhythm); when the warm-up / start reminders are due | day, plan → `Block`; now → `Reminder` | `[rhythm]` | `test_rhythm.py` |
+| `core/history.py` | Deep minutes per session; the chain of kept days | minute entries, outcomes → numbers | `kept_deep_minutes` | `test_rhythm.py` |
+| `core/rhythm.py` | Glue: today's block, today's sessions, chain length from stored data | store → blocks, sessions, chain | `[rhythm]` | `test_rhythm.py` |
+| `rhythm_prompts.py` | Shows the evening planning dialog and the morning reminders; records answers | — | `planning_time`, `warmup_minutes` | manual |
 | `core/analyzer.py`, `core/rules/` | Notice patterns outside sessions (currently none active: parked until scheduled deep-work blocks) | `Segment`s → `Finding`s | per rule | `test_core.py` |
 | `core/policy.py` | Allow an interruption? | `Finding`, now, away → yes/no | `[nudges]` | `test_core.py` |
 | `services/activitywatch.py` | Run ActivityWatch's server + watchers instead of its own tray app; restart crashed ones; stop them on quit; take over leftovers from a crashed run | module commands → running processes | `[activitywatch] manage`, `modules` | `test_activitywatch.py` |
-| `ui/` | Tray (scoreboard lines, `board.py`), scope icon with progress ring (`icon.py`), popup, inbox, looping alarm sound (`sound.py`, Qt audio) | — | `[session] alarm_sound`, `alarm_volume` | `test_scoreboard.py` (text), manual |
+| `ui/` | Tray (scoreboard + block/chain/session lines, `board.py`), plan dialog (`plan_dialog.py`), scope icon with progress ring (`icon.py`), popup, inbox, looping alarm sound (`sound.py`, Qt audio) | — | `[session] alarm_sound`, `alarm_volume` | `test_scoreboard.py` (text), manual |
 | `platforms/` | Per OS: start at login, where ActivityWatch is installed | — | — | manual |
 | `assets/sounds/` | Built-in sounds, with `CREDITS.md` (source and license) | — | — | — |
 | `app.py` | Wire it all into the tray app: 2 s poll + 15 s analysis; menu actions | — | `[analysis]` | manual |

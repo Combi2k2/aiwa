@@ -27,8 +27,12 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
 
 ## Rule 1: Work deeply
 
-- [ ] **Choose a depth philosophy** (monastic, bimodal, rhythmic, journalistic)
-  → setup choice that sets the defaults for scheduling and nudge strictness
+- [ ] **Depth philosophies as configuration, not labels** (decided 2026-09-29): people
+  aren't put into one type; each philosophy is a way to calibrate blocks and strictness.
+  - [~] **Rhythmic**: same time every day + a chain of kept days (building first)
+  - [ ] **Bimodal**: whole deep days vs. open days
+  - [ ] **Monastic**: most of the day deep, shallow only in set windows
+  - [ ] **Journalistic**: deep work whenever time appears (current ad-hoc sessions)
 - [~] **Ritualize**: where, how long, how you work, what supports you
   → focus-session template: duration, allowed apps, pre-session checklist
 - [ ] **Grand gesture**
@@ -88,3 +92,20 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   → out of aiwa's reach (no email access); tips in docs only
 - [ ] **Don't respond to everything**
   → out of scope; docs only
+
+## Daily rhythm (user ideas, 2026-09-29)
+
+- [ ] **Shift deep work toward the morning**, gradually (a few hours after waking tends
+  to be best for most people; night-shift workers not covered for now)
+- [ ] **Plan tomorrow before bed** (prompted), so the morning starts with an obvious plan
+  → also covers Newport's *shutdown ritual*
+- [ ] **Sleep anchor**: wind-down pokes in the evening, escalating late at night; be
+  understanding, not judgmental, when people resist it
+- [ ] **Warm-up before deep work**: good-habit shallow work (morning routine, email,
+  news) as an on-ramp, time-boxed
+- [ ] **Calendar / task-tracker integration** (calendar, Jira, Trello): place deep work
+  inside events that look like deep work, without clashing with the rest
+- [ ] **Daily routines** (meals, shower, sport, morning routine): learned from the user's
+  own data (typical times, not fixed numbers), then gently prompted
+- [ ] **Shallow and distraction periods** scheduled in the open time; deep work capacity
+  is limited, so planned downtime is part of the design
