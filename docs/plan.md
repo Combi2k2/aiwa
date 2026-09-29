@@ -262,15 +262,18 @@ Build order: morning start → routine questions → offline tasks → consisten
 - **Answers "offline work" outside a session:** an insight to use later.
 
 ## Decisions 2026-09-29: shutdown ritual
-- **When it's offered** (revised 2026-09-29, the user's design): a shift ends when focus is
-  low, and the shutdown time (18:00 weekdays, `[shutdown]`) is near. Offer when
-  closeness × lowness ≥ 0.5. Closeness is asymmetric: e^(−time left / 45 min) before the
-  shutdown time (16:00 → 0.07, 17:00 → 0.26, 17:30 → 0.51), 1 from then on. Lowness =
-  1 − (10-min focus / 0.6), 1 with no data. Never while focused, never in a session.
-  Start shutdown / Later (30 min).
+- **When it's offered** (revised twice 2026-09-29, the user's design): offer when
+  time weight × focus weight ≥ 0.5.
+  - Time weight: an S-curve (logistic) centred on the shutdown time (18:00 weekdays,
+    `[shutdown]`): 16:00 0.01, 17:00 0.1, 17:30 0.25, 18:00 0.5, 18:30 0.75, 19:00 0.9.
+  - Focus weight: 1 − (10-min focus / 0.6): high when focus is low, 0 when focused; 1
+    with no data.
+  - Everything waits until any session is over (offers, the alarm, the ritual's steps).
+  - Start shutdown / Later (30 min).
 - **Not "reflect right after stopping"** (the user is gone by then). Instead, stats:
-  - **Off time** = the peak of the smoothed distribution of 30+ min absence starts, from
-    3 h before to 4 h after the shutdown time (lunch excluded), after 5+ days of data.
+  - **Off time** = the peak of the smoothed time-of-day distribution of the starts of
+    absences longer than 3 hours (the user stops interacting with the computer), after
+    5+ days of data.
   - A session ended by the user within 30 min of the off time → "wrap up the day?"
   - Wrap-up missed on 3+ of the last 5 workdays (aiwa running) → in the 20 min before the
     off time, offer a daily wrap-up alarm (off time − 15 or − 30 min; at most weekly).

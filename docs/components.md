@@ -53,8 +53,8 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `routine_prompts.py` | Stores every absence, asks about some: the user types what they did, openjev classifies it (in the background); unsure → "which one was it?" with openjev's guesses, "Something else", "Don't ask me this" | — | — | manual |
 | `core/capture.py` | Outside sessions: when to ask "anything worth noting?" (shallow 15 s per visit, distraction 5 min per stretch); `Source` (tab url or app window); `FollowUps`: a task's tab/window not visited for 15 min → "finished?" | segment, category, in session? → `Source` / task id | `CaptureParams` | `test_capture.py` |
 | `capture_prompts.py` | The note popup (typed), openjev "is it a to-do?" → task form prefilled and linked to its source; "finished?" with closing the tab/window | — | — | manual |
-| `core/shutdown.py` | The end of the workday: shift ending = closeness to the shutdown time (asymmetric) × low focus | now, 10-min focus → 0..1 | `[shutdown]`, `ShutdownParams` | `test_shutdown.py` |
-| `core/offtime.py` | The usual off time (peak of 30+ min absence starts near the shutdown time); near it?; wrap-ups often missed? | absence starts → time | `OffTimeParams` | `test_shutdown.py` |
+| `core/shutdown.py` | The end of the workday: shift ending = time weight (S-curve around the shutdown time) × low focus | now, 10-min focus → 0..1 | `[shutdown]`, `ShutdownParams` | `test_shutdown.py` |
+| `core/offtime.py` | The usual off time (peak of the starts of 3+ h absences); near it?; wrap-ups often missed? | absence starts → time | `OffTimeParams` | `test_shutdown.py` |
 | `shutdown_prompts.py` | Offers the ritual (shift ending, session ended near the off time, the wrap-up alarm), offers the alarm when often missed; runs the steps one at a time; "done today" stops capture | — | — | manual |
 | `core/analyzer.py`, `core/rules/` | Notice patterns outside sessions (currently none active: parked until scheduled deep-work blocks) | `Segment`s → `Finding`s | per rule | `test_core.py` |
 | `core/policy.py` | Allow an interruption? | `Finding`, now, away → yes/no | `[nudges]` | `test_core.py` |

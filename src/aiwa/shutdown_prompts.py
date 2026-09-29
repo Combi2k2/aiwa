@@ -51,9 +51,9 @@ class ShutdownPrompts:
     def _busy(self) -> bool:
         return self.popup.isVisible() or self.tasks.form.isVisible() or self.tasks.breakdown_dialog.isVisible()
 
-    def step(self, now: datetime) -> None:
-        """Every poll (a few seconds): move the running ritual on."""
-        if self.stage is not None and not self._busy():
+    def step(self, now: datetime, in_session: bool) -> None:
+        """Every poll (a few seconds): move the running ritual on (paused during a session)."""
+        if self.stage is not None and not in_session and not self._busy():
             self._next(now)
 
     def check(self, now: datetime, active: bool, in_session: bool, intensity: float | None) -> None:
@@ -107,7 +107,7 @@ class ShutdownPrompts:
                 day = today - timedelta(days=back)
                 if workday(day, self.params) and self._aiwa_ran(day, now):
                     done.append(self.store.get_state(f"shutdown:{day.isoformat()}") == "done")
-            self._stats = (now, off_time(stops, self.params.time, self.off_params), done)
+            self._stats = (now, off_time(stops, self.day_starts, self.off_params), done)
         return self._stats[1], self._stats[2]
 
     def _aiwa_ran(self, day: date, now: datetime) -> bool:

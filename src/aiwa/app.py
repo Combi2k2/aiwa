@@ -366,7 +366,7 @@ class Aiwa:
         in_session = self.session is not None
         # after the workday is shut down, no more work questions
         self.capture.step(now, current, category, in_session=in_session or self.shutdown.done_today(now))
-        self.shutdown.step(now)
+        self.shutdown.step(now, in_session)
         if question and not self.popup.isVisible():
             self.ask(question)
         elif self.sampling and not self.popup.isVisible():
