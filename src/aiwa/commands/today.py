@@ -37,7 +37,7 @@ def run_week(config: config_mod.Config) -> int:
     k = keeper(config)
     now = datetime.now(timezone.utc)
     k.update(now)
-    print(f"  {'day':<14}{'deep':>6}{'streak':>8}{'mean':>7}  goal")
+    print(f"  {'day':<16}{'deep':>8}{'streak':>8}{'mean':>7}  goal")
     for back in range(6, -1, -1):
         day, start, end = day_bounds(now - timedelta(days=back), config.day_starts)
         entries = k.store.minutes(start, end)
@@ -45,5 +45,5 @@ def run_week(config: config_mod.Config) -> int:
             continue
         d = summarize_day(day, entries, config.focus.deep_threshold, config.quota.start)
         mean = f"{d.mean_intensity:.2f}" if d.mean_intensity is not None else "   –"
-        print(f"  {day:%a %Y-%m-%d}{duration(d.deep_minutes):>6}{d.longest_streak:>7}m{mean:>7}  {d.goal_progress:.0%}")
+        print(f"  {day:%a %Y-%m-%d}  {duration(d.deep_minutes):>8}{d.longest_streak:>7}m{mean:>7}  {d.goal_progress:.0%}")
     return 0

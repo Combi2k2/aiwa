@@ -132,6 +132,7 @@ class Store:
         if "ended_by" not in {row[1] for row in self._db.execute("PRAGMA table_info(sessions)")}:
             self._db.execute("ALTER TABLE sessions ADD COLUMN ended_by TEXT")
         self._migrate_todos()
+        self._normalize_minutes()
 
     def log_nudge(self, finding: Finding, shown_at: datetime) -> int:
         cur = self._db.execute(
@@ -217,7 +218,8 @@ class Store:
     def save_minutes(self, entries: list) -> None:
         self._db.executemany(
             "INSERT OR REPLACE INTO focus_minutes (minute, intensity, activity) VALUES (?, ?, ?)",
-            [(e.minute.isoformat(), e.intensity, e.activity) for e in entries],
+            # always UTC: minutes are compared as text, which is only correct with one offset
+            [(e.minute.astimezone(timezone.utc).isoformat(), e.intensity, e.activity) for e in entries],
         )
         self._db.commit()
 
@@ -364,6 +366,18 @@ class Store:
     def set_state(self, key: str, value: str) -> None:
         self._db.execute("INSERT OR REPLACE INTO state (key, value) VALUES (?, ?)", (key, value))
         self._db.commit()
+
+    def _normalize_minutes(self) -> None:
+        """Rewrite minutes saved with a local offset in UTC, merging duplicates (once)."""
+        if self.get_state("minutes_utc"):
+            return
+        rows = self._db.execute("SELECT minute, intensity, activity FROM focus_minutes ORDER BY minute").fetchall()
+        self._db.execute("DELETE FROM focus_minutes")
+        self._db.executemany(
+            "INSERT OR REPLACE INTO focus_minutes (minute, intensity, activity) VALUES (?, ?, ?)",
+            [(datetime.fromisoformat(m).astimezone(timezone.utc).isoformat(), i, a) for m, i, a in rows],
+        )
+        self.set_state("minutes_utc", datetime.now(timezone.utc).isoformat())
 
     def _migrate_todos(self) -> None:
         """Open items from the earlier day-plan to-do list become backlog tasks (once)."""

@@ -102,3 +102,16 @@ def test_scoreboard_lines():
     assert "100%" in lines[2] and "▓" * 10 in lines[2]
     assert lines[3] == "Time on: Deep 1h 15m"
     assert duration(59) == "59m" and duration(125) == "2h 05m"
+
+
+def test_minutes_saved_in_any_time_zone_are_found_by_time(tmp_path):
+    from datetime import timezone as tz
+
+    store = Store(tmp_path / "db")
+    plus_two = tz(timedelta(hours=2))
+    # 03:30 local (+02:00) is 01:30 UTC: before a day starting at 04:00 local
+    store.save_minutes([MinuteEntry(datetime(2026, 9, 29, 3, 30, tzinfo=plus_two), 0.9, "deep"),
+                        MinuteEntry(datetime(2026, 9, 29, 4, 30, tzinfo=plus_two), 0.9, "deep")])
+    day_start = datetime(2026, 9, 29, 4, 0, tzinfo=plus_two)
+    found = store.minutes(day_start, day_start + timedelta(days=1))
+    assert [e.minute.astimezone(plus_two).hour for e in found] == [4]
