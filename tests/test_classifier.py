@@ -64,7 +64,7 @@ def test_switching_away_restarts_the_clock(tmp_path):
 
 def test_openjev_is_asked_2_seconds_after_switching_and_only_once(tmp_path):
     executor = InlineExecutor()
-    c = loop(tmp_path, suggest=lambda _: (Category.DEEP, 0.95), executor=executor)
+    c = loop(tmp_path, suggest=lambda _: ("code_hosting", 0.95), executor=executor)
     c.observe(tab("github.com"), at(0))
     c.observe(tab("github.com"), at(1))
     assert executor.calls == []  # a quick flick past a tab costs nothing
@@ -74,7 +74,7 @@ def test_openjev_is_asked_2_seconds_after_switching_and_only_once(tmp_path):
 
 
 def test_confident_openjev_answer_is_shown_for_confirmation(tmp_path):
-    c = loop(tmp_path, suggest=lambda _: (Category.DEEP, 0.95), executor=InlineExecutor())
+    c = loop(tmp_path, suggest=lambda _: ("code_hosting", 0.95), executor=InlineExecutor())
     c.observe(tab("github.com"), at(0))
     c.observe(tab("github.com"), at(2))  # openjev asked
     assert c.observe(tab("github.com"), at(4)) == Question("confirm", "github.com")
@@ -85,7 +85,7 @@ def test_confident_openjev_answer_is_shown_for_confirmation(tmp_path):
 
 
 def test_changing_openjevs_answer_makes_it_the_users(tmp_path):
-    c = loop(tmp_path, suggest=lambda _: (Category.DEEP, 0.95), executor=InlineExecutor())
+    c = loop(tmp_path, suggest=lambda _: ("code_hosting", 0.95), executor=InlineExecutor())
     c.observe(tab("youtube.com"), at(0))
     c.observe(tab("youtube.com"), at(2))
     c.answered(Question("confirm", "youtube.com"), "distraction", at(5))
@@ -94,7 +94,7 @@ def test_changing_openjevs_answer_makes_it_the_users(tmp_path):
 
 
 def test_unsure_openjev_answer_means_the_user_is_asked_at_10_seconds(tmp_path):
-    c = loop(tmp_path, suggest=lambda _: (Category.SHALLOW, 0.5), executor=InlineExecutor())
+    c = loop(tmp_path, suggest=lambda _: ("email", 0.5), executor=InlineExecutor())
     c.observe(tab("example.org"), at(0))
     c.observe(tab("example.org"), at(2))
     assert c.observe(tab("example.org"), at(8)) is None
@@ -142,7 +142,7 @@ def test_never_classifies_rule_covered_whole_browser_internal_or_away(tmp_path):
 
 def test_desktop_apps_are_described_as_apps(tmp_path):
     executor = InlineExecutor()
-    c = loop(tmp_path, suggest=lambda _: (Category.NEUTRAL, 0.9), executor=executor)
+    c = loop(tmp_path, suggest=lambda _: ("system", 0.9), executor=executor)
     c.observe(Segment(T0, T0, "Notes"), at(0))
     c.observe(Segment(T0, T0, "Notes"), at(2))
     assert executor.calls == [("the desktop app Notes",)]
@@ -177,7 +177,7 @@ def test_dont_track_is_remembered_without_the_name(tmp_path):
 
 def test_track_questions_never_reach_openjev(tmp_path):
     executor = InlineExecutor()
-    c = loop(tmp_path, suggest=lambda _: (Category.DEEP, 0.9), executor=executor)
+    c = loop(tmp_path, suggest=lambda _: ("ide", 0.9), executor=executor)
     c.observe(Segment(T0, T0, "Spotify"), at(0))
     c.observe(Segment(T0, T0, "Spotify"), at(20))
     assert executor.calls == []
@@ -204,3 +204,46 @@ def test_ignore_apps_setting_and_system_windows_are_never_asked_about(tmp_path):
     now = datetime.now(timezone.utc)
     for app in ["Raycast", "loginwindow"]:
         assert loop._question_for(Segment(now - timedelta(minutes=1), now, app)) is None
+
+
+def test_openjev_gives_the_kind_and_its_default_category(tmp_path):
+    c = loop(tmp_path, suggest=lambda _: ("video_streaming", 0.99), executor=InlineExecutor())
+    c.observe(tab("youtube.com"), at(0))
+    c.observe(tab("youtube.com"), at(2))  # openjev asked
+    c.observe(tab("youtube.com"), at(3))  # its answer collected
+    assert c.store.get_kind("youtube.com") == ("video_streaming", "openjev", 0.99)
+    assert c.store.get_classification("youtube.com").category is Category.DISTRACTION
+    assert c.observe(tab("youtube.com"), at(4)) == Question("confirm", "youtube.com")
+    c.answered(Question("confirm", "youtube.com"), "ok", at(5))
+    assert c.store.get_kind("youtube.com")[1] == "user"
+
+
+def test_picking_another_kind_or_letting_one_site_count_differently(tmp_path):
+    c = loop(tmp_path, suggest=lambda _: ("video_streaming", 0.99), executor=InlineExecutor())
+    c.observe(tab("youtube.com"), at(0))
+    c.observe(tab("youtube.com"), at(2))
+    c.answered(Question("confirm", "youtube.com"), "kind:education", at(5))
+    assert c.store.get_kind("youtube.com")[:2] == ("education", "user")
+    assert c.store.get_classification("youtube.com").category is Category.DEEP  # education's default
+    c.answered(Question("confirm", "youtube.com"), "shallow", at(6))
+    assert c.store.get_classification("youtube.com").category is Category.SHALLOW  # this site only
+    assert c.store.get_kind("youtube.com")[0] == "education"
+
+
+def test_something_else_means_the_user_is_asked(tmp_path):
+    c = loop(tmp_path, suggest=lambda _: ("other", 0.69), executor=InlineExecutor())
+    c.observe(tab("localhost"), at(0))
+    c.observe(tab("localhost"), at(2))
+    assert c.store.get_classification("localhost") is None  # no default category
+    assert c.observe(tab("localhost"), at(10)) == Question("classify", "localhost")
+
+
+def test_existing_sites_get_their_kind_quietly(tmp_path):
+    executor = InlineExecutor()
+    c = loop(tmp_path, suggest=lambda activity: ("social_media", 0.98), executor=executor)
+    c.store.set_category("instagram.com", Category.DISTRACTION, "user", at(0))
+    c.backfill_kinds()
+    c.observe(None, at(1))  # collects the answers
+    assert executor.calls == [("the website instagram.com",)]
+    assert c.store.get_kind("instagram.com")[0] == "social_media"
+    assert c.store.get_classification("instagram.com").source == "user"  # the user's category stays

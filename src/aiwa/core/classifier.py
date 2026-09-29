@@ -9,10 +9,14 @@ Called every few seconds with what is in focus. Two kinds of question:
 - **classify** / **confirm**, for a tracked app or website:
   1. a config rule, an earlier user answer or a confirmed openjev answer settles it;
   2. otherwise, after `suggest_after` on it, openjev (optional) is asked in the
-     background and its answer is cached with its confidence;
-  3. a confident openjev answer is shown for the user to confirm or change;
-  4. with no confident answer after `ask_after`, the user is asked to classify it.
-  The user's answer always wins.
+     background what *kind* of site or app it is (core/kinds.py); the kind and its
+     default category are cached with openjev's confidence;
+  3. a confident answer is shown for the user to confirm (or pick another kind, or
+     let this one site count differently);
+  4. with no confident answer (or "something else") after `ask_after`, the user is
+     asked what it is.
+  The user's answer always wins. Sites classified before kinds existed get their
+  kind filled in quietly (`backfill_kinds`), without a question.
 """
 
 from __future__ import annotations
@@ -26,10 +30,11 @@ from typing import Callable
 
 from aiwa.config import Config
 from aiwa.core.events import Category, Segment
+from aiwa.core.kinds import default_category
 from aiwa.core.store import Classification, Store
 from aiwa.core.timeline import BROWSER_APPS
 
-Suggest = Callable[[str], "tuple[Category, float] | None"]
+Suggest = Callable[[str], "tuple[str, float] | None"]  # openjev: (kind, probability)
 
 SUGGESTION_WAIT = timedelta(seconds=5)  # after `ask_after`, wait this long for openjev before asking without it
 ASK_LATER = timedelta(hours=2)
@@ -98,17 +103,43 @@ class ClassificationLoop:
         return question
 
     def answered(self, question: Question, response: str, now: datetime) -> None:
+        """Responses: 'later', 'never' (track), 'ok' (confirm), 'kind:<kind>', or a category value."""
+        key = question.key
         if response == "later":
             self.later[question] = now + ASK_LATER
         elif question.kind == "track" and response == "never":
-            self.store.set_tracking(question.key, False, now)
+            self.store.set_tracking(key, False, now)
         elif question.kind == "confirm" and response == "ok":
-            self.store.confirm_category(question.key, now)
+            self.store.confirm_category(key, now)
+            known_kind = self.store.get_kind(key)
+            if known_kind:
+                self.store.set_kind(key, known_kind[0], "user", now)
+        elif response.startswith("kind:"):
+            kind = response.removeprefix("kind:")
+            self.store.set_kind(key, kind, "user", now)
+            category = default_category(kind)
+            if category is not None:
+                self.store.set_category(key, category, "user", now)
+            # no default ("something else"): the app asks how it counts, answered with a category
         else:
             if question.kind == "track":  # answering with a category means "track it as this"
-                self.store.set_tracking(question.key, True, now)
-                self.config.add_tracked_apps([question.key])
-            self.store.set_category(question.key, Category(response), "user", now)
+                self.store.set_tracking(key, True, now)
+                self.config.add_tracked_apps([key])
+            self.store.set_category(key, Category(response), "user", now)
+            known_kind = self.store.get_kind(key)
+            if known_kind and known_kind[1] == "openjev" and question.kind == "confirm":
+                self.store.set_kind(key, known_kind[0], "user", now)  # the kind was right, it just counts differently
+
+    def backfill_kinds(self) -> None:
+        """Ask openjev (in the background) for the kind of sites classified before kinds existed."""
+        if not self.suggest:
+            return
+        for key in self.store.keys_without_kind():
+            if key not in self.pending and "·" not in key:
+                is_site = "." in key and " " not in key
+                self.suggested.add(key)
+                self.pending[key] = self.executor.submit(
+                    self.suggest, f"the website {key}" if is_site else f"the desktop app {key}")
 
     def suggestion(self, key: str) -> Classification | None:
         known = self.store.get_classification(key)
@@ -138,9 +169,16 @@ class ClassificationLoop:
                 continue
             del self.pending[key]
             result = future.result() if future.exception() is None else None
+            if not result:
+                continue
+            kind, confidence = result
+            known_kind = self.store.get_kind(key)
+            if not (known_kind and known_kind[1] == "user"):
+                self.store.set_kind(key, kind, "openjev", now, confidence)
             known = self.store.get_classification(key)
-            if result and not (known and known.source == "user"):
-                category, confidence = result
+            category = default_category(kind)
+            if category is not None and known is None:  # never overrides an existing category
+                confidence = confidence if kind != "other" else 0.0
                 self.store.set_category(key, category, "openjev", now, confidence)
 
 

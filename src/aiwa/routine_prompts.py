@@ -13,6 +13,7 @@ from typing import Callable
 
 from aiwa.core.backlog import minutes_text
 from aiwa.core.routines import ACTIVITY_LABEL, Absence, AbsenceTracker, confident_activity, likely_options, overnight
+from aiwa.core import kinds
 from aiwa.core.events import Segment
 from aiwa.core.rules.absence import StillThere
 from aiwa.core.store import Store
@@ -59,7 +60,8 @@ class RoutinePrompts:
             elif self.tracker.should_ask(absence):
                 absence_id = self.store.add_absence(absence.start, absence.end, None, "unasked")
                 if self.still_there and before is not None:
-                    context = self._context(absence, before)
+                    kind = self.store.get_kind(before.key)
+                    context = self._context(absence, before, kinds.label(kind[0]) if kind and kind[0] != "other" else None)
                     self.background.run(lambda: self.still_there(context),
                                         lambda p: self._checked(absence_id, absence, p))
                 else:
@@ -75,9 +77,11 @@ class RoutinePrompts:
                 self._ask(absence_id, absence)
 
     @staticmethod
-    def _context(absence: Absence, left_on: Segment) -> str:
-        """What openjev gets: the app or website (no titles), its category, how long, when."""
+    def _context(absence: Absence, left_on: Segment, kind_label: str | None = None) -> str:
+        """What openjev gets: the app or website (no titles), its kind and category, how long, when."""
         kind = "website" if left_on.url else "app"
+        if kind_label:
+            kind += f" for {kind_label.lower()}"
         counted = f", which the person counts as {left_on.category.value}" if left_on.category else ""
         return (f"A person's computer got no keyboard or mouse input for "
                 f"{int(absence.duration.total_seconds() // 60)} minutes, starting at {absence.start.astimezone():%H:%M}. "

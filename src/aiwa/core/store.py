@@ -33,6 +33,13 @@ CREATE TABLE IF NOT EXISTS categories (
     confidence REAL,         -- openjev's probability; NULL for user answers
     confirmed_at TEXT        -- when the user accepted openjev's answer; NULL if not (yet)
 );
+CREATE TABLE IF NOT EXISTS site_kinds (
+    key TEXT PRIMARY KEY,    -- app name, or website domain (as in categories)
+    kind TEXT NOT NULL,      -- core/kinds.py
+    source TEXT NOT NULL,    -- 'openjev' or 'user'
+    confidence REAL,         -- openjev's probability
+    set_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS ratings (
     id INTEGER PRIMARY KEY,
     asked_at TEXT NOT NULL,
@@ -219,6 +226,22 @@ class Store:
             (key, category.value, source, set_at.isoformat(), confidence),
         )
         self._db.commit()
+
+    def set_kind(self, key: str, kind: str, source: str, set_at: datetime, confidence: float | None = None) -> None:
+        self._db.execute(
+            "INSERT OR REPLACE INTO site_kinds (key, kind, source, confidence, set_at) VALUES (?, ?, ?, ?, ?)",
+            (key, kind, source, confidence, set_at.isoformat()),
+        )
+        self._db.commit()
+
+    def get_kind(self, key: str) -> tuple[str, str, float | None] | None:
+        """(kind, source, confidence) of a site or app."""
+        row = self._db.execute("SELECT kind, source, confidence FROM site_kinds WHERE key = ?", (key,)).fetchone()
+        return (row[0], row[1], row[2]) if row else None
+
+    def keys_without_kind(self) -> list[str]:
+        return [r[0] for r in self._db.execute(
+            "SELECT key FROM categories WHERE key NOT IN (SELECT key FROM site_kinds) ORDER BY key")]
 
     def all_categories(self) -> list[tuple[str, Category, str]]:
         rows = self._db.execute("SELECT key, category, source FROM categories ORDER BY key").fetchall()

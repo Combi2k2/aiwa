@@ -178,3 +178,22 @@ def still_there(client: Openjev, context: str) -> float | None:
         return 1.0 - float(a.get("probabilities", {}).get("away", 1.0 if a["choice"] == "away" else 0.0))
     except (requests.RequestException, KeyError, ValueError, TypeError):
         return None
+
+
+def suggest_kind(client: Openjev, activity: str) -> tuple[str, float] | None:
+    """What a website or app is (core/kinds.py) and openjev's probability; None on failure.
+
+    `activity` is only the app name or domain, e.g. "the website youtube.com".
+    """
+    from aiwa.core.kinds import KINDS
+
+    try:
+        a = client.ask(
+            f"A person uses {activity} on their computer.",
+            {"kind": {"type": "choice", "instructions": "What kind of website or app is this?",
+                      "criteria": {k.key: f"{k.label}: {k.description}" for k in KINDS}}},
+        )["kind"]
+        choice = a["choice"]
+        return choice, float(a.get("probabilities", {}).get(choice, a.get("confidence", 0)))
+    except (requests.RequestException, KeyError, ValueError, TypeError):
+        return None

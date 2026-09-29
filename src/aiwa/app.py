@@ -25,7 +25,8 @@ from aiwa.core.scoreboard import ScoreKeeper
 from aiwa.core.scoreboard.day import day_bounds, summarize_day
 from aiwa.core.rules.focus import LowAndNotRising
 from aiwa.core.session import Action, FocusSession
-from aiwa.core.openjev import Openjev, assess_task, classify_activity, is_todo, still_there, suggest_group
+from aiwa.core.openjev import Openjev, assess_task, classify_activity, is_todo, still_there, suggest_group, suggest_kind
+from aiwa.core import kinds
 from aiwa.core.quota import QuotaKeeper
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
@@ -85,9 +86,10 @@ class Aiwa:
         self.classifier = ClassificationLoop(
             config,
             self.store,
-            suggest=openjev.suggest_category if openjev else None,
+            suggest=(lambda activity: suggest_kind(openjev, activity)) if openjev else None,
             executor=ThreadPoolExecutor(max_workers=2) if openjev else None,  # never block the UI on the network
         )
+        self.classifier.backfill_kinds()  # sites classified before kinds existed: their kind, quietly
         self.analyzer = Analyzer(default_rules())
         self.policy = NudgePolicy(timedelta(minutes=config.min_minutes_between_nudges))
         self.sampling = SamplingSchedule(config.sampling) if config.sampling_enabled else None
@@ -498,22 +500,36 @@ class Aiwa:
             options = TRACK_OPTIONS
         elif question.kind == "confirm":
             guess = self.classifier.suggestion(question.key)
-            message = (
-                f"“{question.key}” was classified as {guess.category.value} by openjev"
-                f" ({guess.confidence or 0:.0%} sure). OK, or change it to:"
-            )
-            options = [("OK", "ok")] + [o for o in RATING_OPTIONS[:-1] if o[1] != guess.category.value]
+            kind = self.store.get_kind(question.key)
+            what = f"looks like {kinds.label(kind[0])}" if kind else "was classified by openjev"
+            message = (f"“{question.key}” {what} ({guess.confidence or 0:.0%} sure), "
+                       f"so it counts as {guess.category.value}. Right?")
+            options = [("Right", "ok"), ("Other kind…", "_kinds"), ("Counts as…", "_counts"), ("Ask later", "later")]
         else:
-            message = f"How does “{question.key}” count for you?"
-            guess = self.classifier.suggestion(question.key)
-            if guess:
-                message += f"\n(openjev guesses {guess.category.value}, {guess.confidence or 0:.0%} sure)"
-            options = RATING_OPTIONS
-        self.popup.ask(
-            message,
-            lambda r: self.classifier.answered(question, r, datetime.now(timezone.utc)),
-            options,
-        )
+            kind = self.store.get_kind(question.key)
+            message = f"What is “{question.key}”?"
+            if kind and kind[0] != "other":
+                message += f"\n(openjev guesses {kinds.label(kind[0])}, {kind[2] or 0:.0%} sure)"
+            options = [(group, f"_group:{group}") for group in kinds.GROUPS] + [("Ask later", "later")]
+        self.popup.ask(message, lambda r: self.on_classify_answer(question, r), options)
+
+    def on_classify_answer(self, question: Question, response: str) -> None:
+        """Answers to classification popups; some open a follow-up (kind groups, categories)."""
+        key = question.key
+        if response == "_kinds":
+            self.popup.ask(f"What is “{key}”?", lambda r: self.on_classify_answer(question, r),
+                           [(group, f"_group:{group}") for group in kinds.GROUPS])
+        elif response.startswith("_group:"):
+            group = response.removeprefix("_group:")
+            self.popup.ask(f"What is “{key}”? ({group})", lambda r: self.on_classify_answer(question, r),
+                           [(k.label, f"kind:{k.key}") for k in kinds.in_group(group)])
+        elif response == "_counts":
+            self.popup.ask(f"How does “{key}” count for you? (only this one)",
+                           lambda r: self.on_classify_answer(question, r), RATING_OPTIONS[:-1])
+        else:
+            self.classifier.answered(question, response, datetime.now(timezone.utc))
+            if response.startswith("kind:") and kinds.default_category(response.removeprefix("kind:")) is None:
+                self.on_classify_answer(question, "_counts")  # "something else": how does it count?
 
     def show(self, finding: Finding, nudge_id: int) -> None:
         if finding.level is Level.QUIET:

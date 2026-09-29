@@ -375,3 +375,15 @@ Build order: morning start → routine questions → offline tasks → consisten
   away. P(not away) ≥ 0.7 (`[routines] skip_if_still_there`, rule `StillThere`) → not
   asked (stored as 'still_there'). Tested: streaming sites 0.71–0.74, code editor 0.60,
   email 0.19. Sharper once the kind layer gives openjev the site's kind.
+
+## Decisions 2026-09-29: site kinds (the user's taxonomy idea)
+- Two layers: **kind** (what it is: video streaming, email, IDE…, `core/kinds.py`, 26
+  kinds in 5 groups + "Something else") and **category** (how it counts). Each kind has
+  a default category; one site can count differently.
+- openjev picks the kind from the fixed list (tested on 20 real sites: 19 right at
+  0.97–1.00; localhost → "something else"). The user confirms each site's kind (no
+  Gemini needed): "youtube.com looks like Video streaming (99% sure), so it counts as
+  distraction. Right?" → Right / Other kind… (group → kind) / Counts as… / Ask later.
+  "Something else" or unsure → "What is …?" with the groups.
+- Sites classified before: their kind is filled in quietly by openjev at startup.
+- The kind is context for openjev's "still at the computer?" veto.

@@ -131,6 +131,7 @@ def test_context_for_openjev_has_no_titles():
 
     watching = Segment(at(0), at(1), "Google Chrome", "Episode 12 – secret title", "https://www.youtube.com/watch?v=x",
                        category=Category.DISTRACTION)
-    text = RoutinePrompts._context(Absence(at(0), at(25)), watching)
-    assert "25 minutes" in text and "youtube.com (a website, which the person counts as distraction)" in text
+    text = RoutinePrompts._context(Absence(at(0), at(25)), watching, "Video streaming")
+    assert "25 minutes" in text
+    assert "youtube.com (a website for video streaming, which the person counts as distraction)" in text
     assert "Episode" not in text and "watch?v" not in text
