@@ -19,6 +19,7 @@ class Tray:
         on_tasks: Callable[[], None],
         on_new_task: Callable[[], None],
         on_task_done: Callable[[], None],
+        on_walk: Callable[[], None],
         on_rate: Callable[[], None],
         on_snooze: Callable[[], None],
         on_settings: Callable[[], None],
@@ -37,6 +38,7 @@ class Tray:
         self._session = self._add("Start focus session", on_session)
         self._add("Current task done → next", on_task_done)
         self._add("New task…", on_new_task)
+        self._add("Thinking walk…", on_walk)
         self._add("Tasks…", on_tasks)
         self._add("Rate my focus now…", on_rate)
         self._add("Snooze nudges for 1 hour", on_snooze)

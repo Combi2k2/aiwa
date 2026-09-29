@@ -53,9 +53,10 @@ class Popup(QWidget):
         on_text: Callable[[str | None], None],
         placeholder: str = "",
         skip_label: str = "Skip",
+        text: str = "",
     ) -> None:
         """Show `message` with a text field (Enter or "Save" submits); on_text gets the text, or None on skip."""
-        self._text.clear()
+        self._text.setText(text)
         self._text.setPlaceholderText(placeholder)
         self._text.setVisible(True)
 

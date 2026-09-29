@@ -66,8 +66,9 @@ Status: `[ ]` not started · `[~]` designing/building · `[x]` done
   → detect "short idle → distraction app" pattern; gentle check-in, not a block
 - [ ] **Work like Roosevelt** (short, intense deadlines)
   → "sprint" session: user picks a task and a tight deadline; countdown in tray
-- [ ] **Productive meditation**
+- [x] **Productive meditation**
   → after a long session, suggest a walk with one problem to think about; ask for the result afterwards
+  *(built 2026-09-29: thinking walk after good sessions or from the tray; counts as offline deep work; the outcome is kept as a note)*
 - [ ] **Memory training**
   → out of scope for aiwa; mention in docs only
 

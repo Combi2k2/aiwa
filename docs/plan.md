@@ -314,3 +314,13 @@ Build order: morning start → routine questions → offline tasks → consisten
   +20 74%. Prompt: "Batch the rest for later and get back to deep work?" → Start a focus
   session / Not now.
 - Tray: "Shallow today: 1h 40m · 28% (limit 30%)". Weekly review: the week's share.
+
+## Decisions 2026-09-29: productive meditation
+- A thinking walk on one well-defined problem. Suggested after a session the user
+  stopped with 25+ deep minutes, half of the time (`MeditationParams.chance`); or tray →
+  Thinking walk… any time.
+- The user types the problem (prefilled with the next task) and picks 15 / 30 / 45 min.
+  The walk is a session on an offline "task": away = the work, counted as deep minutes
+  (up to its length + 30 min grace, like offline tasks).
+- Back → "What did you figure out about …?" → kept as a note (reviewed in the shutdown),
+  and the walk's session ends.

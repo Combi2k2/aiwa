@@ -32,11 +32,14 @@ from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
 from aiwa.bedtime_prompts import BedtimePrompts
 from aiwa.capture_prompts import CapturePrompts
+from aiwa.meditation_prompts import MeditationPrompts
 from aiwa.shutdown_prompts import ShutdownPrompts
 from aiwa.core.backlog import minutes_text
 from aiwa.core.budget import ShallowBudget, shallow_share
 from aiwa.core.consistency import ConsistencyParams, consistency
 from aiwa.core.offline import OfflineWork
+from aiwa.core.meditation import is_walk
+from aiwa.core.history import deep_minutes
 from aiwa.core.shutdown import workday
 from aiwa.core.weekly import WeekFacts, review_due, review_text, week_start
 from aiwa.morning_prompts import MorningPrompts
@@ -111,6 +114,7 @@ class Aiwa:
             on_tasks=lambda: self.tasks.open_board(),
             on_new_task=lambda: self.tasks.new_task(),
             on_task_done=lambda: self.tasks.task_done(),
+            on_walk=lambda: self.meditation.start(),
             on_rate=lambda: self.ask_focus("manual"),
             on_snooze=self.snooze_hour,
             on_settings=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(CONFIG_PATH))),
@@ -141,6 +145,8 @@ class Aiwa:
                                        classify=(lambda text: classify_activity(openjev, text)) if openjev else None)
         self.capture = CapturePrompts(self.store, self.popup, self.tasks,
                                       (lambda note: is_todo(openjev, note)) if openjev else None)
+        self.meditation = MeditationPrompts(self.store, self.popup, self.start_walk,
+                                            current_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
         self.shutdown = ShutdownPrompts(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
                                         self.shutdown_wrap_up, alarm=Alarm(config.alarm_sound, config.alarm_volume),
                                         weekly_review=self.weekly_review, save_review=self.save_weekly_review)
@@ -274,7 +280,7 @@ class Aiwa:
         else:
             self.tasks.request_session(self.start_session)  # offers to add a task if the list is empty
 
-    def start_session(self) -> None:
+    def start_session(self, offer_task: bool = True) -> None:
         if self.session:
             return
         now = datetime.now(timezone.utc)
@@ -282,12 +288,21 @@ class Aiwa:
         self.session = FocusSession(now, self.config.session)
         self.session_checked = now
         self.tray.set_session(0)
-        self.tasks.start_session()  # pick a goal group, hand over its first task
+        if offer_task:
+            self.tasks.start_session()  # pick a goal group, hand over its first task
 
-    def stop_session(self, now: datetime, ended_by: str = "user") -> None:
+    def start_walk(self, walk) -> None:
+        """A thinking walk: a session on the walk as an offline task (core/meditation.py)."""
+        self.stop_session(datetime.now(timezone.utc), quiet=True)
+        self.start_session(offer_task=False)
+        self.tasks.current_task = walk  # not in the backlog; being away is the work
+
+    def stop_session(self, now: datetime, ended_by: str = "user", quiet: bool = False) -> None:
+        """`quiet`: no follow-up prompts (wrap-up reminder, thinking walk)."""
         if not self.session:
             return
         counts = {action.value: n for action, n in self.session.counts.items()}
+        started, walking = self.session.started_at, is_walk(self.tasks.current_task)
         self.store.end_session(self.session_id, now, counts, ended_by)
         self.session = self.session_id = None
         self.offline.reset()
@@ -296,8 +311,11 @@ class Aiwa:
         self.tray.set_session(None)
         if self.popup.isVisible():
             self.popup.hide()
-        if ended_by == "user":
+        if ended_by == "user" and not quiet:
             self.shutdown.session_ended(now)  # near the usual off time: wrap up the day?
+            if not walking:  # after a good session, sometimes: a thinking walk?
+                deep = deep_minutes(self.store.minutes(started, now), started, now, self.config.focus.deep_threshold)
+                self.meditation.after_session(deep)
 
     def step_session(self, segments: list[Segment], now: datetime) -> None:
         if not self.session:
@@ -360,7 +378,10 @@ class Aiwa:
             worked = self.store.mark_offline_work(*step.credit)
             if step.back:
                 self.routines.offline_work_done()  # no "what was that?" about it
-                if task:
+                if is_walk(task):
+                    self.stop_session(step.credit[1], ended_by="walk")  # the walk is over
+                    self.meditation.back(task, worked)
+                elif task:
                     self.popup.ask(
                         f"Welcome back: {minutes_text(worked)} of offline work on “{task.title}”. Is it done?",
                         lambda a: self.tasks.task_done() if a == "done" else None,
