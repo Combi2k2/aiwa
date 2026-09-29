@@ -61,6 +61,8 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/budget.py` | Shallow-work budget: shallow share of active time; soft threshold, prompt sampled with a chance rising with the overshoot | minutes by activity → share; share → prompt? | `[shallow]`, `BudgetParams` | `test_budget.py` |
 | `core/meditation.py` | Productive meditation: when to suggest a thinking walk; the walk as an offline task | session deep minutes → suggest?; problem, minutes → `Task` | `MeditationParams` | `test_meditation.py` |
 | `meditation_prompts.py` | The walk popups: suggestion, problem, length, "what did you figure out?" (a note) | — | — | manual |
+| `core/reminders.py` | Routine reminders: usual times per activity (peaks, 3+ days), done today?, sampled chance = share of days already started by now | labelled absences → `Slot`s; now → slot to remind | `ReminderParams` | `test_reminders.py` |
+| `reminder_prompts.py` | The reminder popup (Going now / Later / Skip today), outside sessions | — | — | manual |
 | `core/analyzer.py`, `core/rules/` | Notice patterns outside sessions (currently none active: parked until scheduled deep-work blocks) | `Segment`s → `Finding`s | per rule | `test_core.py` |
 | `core/policy.py` | Allow an interruption? | `Finding`, now, away → yes/no | `[nudges]` | `test_core.py` |
 | `services/activitywatch.py` | Run ActivityWatch's server + watchers instead of its own tray app; restart crashed ones; stop them on quit; take over leftovers from a crashed run | module commands → running processes | `[activitywatch] manage`, `modules` | `test_activitywatch.py` |

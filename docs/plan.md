@@ -324,3 +324,13 @@ Build order: morning start → routine questions → offline tasks → consisten
   (up to its length + 30 min grace, like offline tasks).
 - Back → "What did you figure out about …?" → kept as a note (reviewed in the shutdown),
   and the walk's session ends.
+
+## Decisions 2026-09-29: routine reminders
+- Usual times per activity = peaks of the smoothed start-time distribution of labelled
+  absences, each with 3+ days within ±90 min (several per activity possible: breakfast,
+  lunch, dinner). Sleep, toilet and offline tasks are excluded.
+- Sampled (soft threshold): every 15 min, if nothing that could be it happened today (an
+  absence of 10+ min in the window, labelled as it or unlabelled), chance = share of past
+  days on which it had started by now. Outside sessions only.
+- "Around 12:30 is usually time for a meal. Time for it now?" → Going now / Later /
+  Skip today (Going now and Skip today: no more reminders for it today).

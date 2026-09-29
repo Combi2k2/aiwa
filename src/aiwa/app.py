@@ -33,6 +33,7 @@ from aiwa.core.store import Store
 from aiwa.bedtime_prompts import BedtimePrompts
 from aiwa.capture_prompts import CapturePrompts
 from aiwa.meditation_prompts import MeditationPrompts
+from aiwa.reminder_prompts import ReminderPrompts
 from aiwa.shutdown_prompts import ShutdownPrompts
 from aiwa.core.backlog import minutes_text
 from aiwa.core.budget import ShallowBudget, shallow_share
@@ -145,6 +146,7 @@ class Aiwa:
                                        classify=(lambda text: classify_activity(openjev, text)) if openjev else None)
         self.capture = CapturePrompts(self.store, self.popup, self.tasks,
                                       (lambda note: is_todo(openjev, note)) if openjev else None)
+        self.reminder_prompts = ReminderPrompts(self.store, self.popup, config.day_starts)
         self.meditation = MeditationPrompts(self.store, self.popup, self.start_walk,
                                             current_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
         self.shutdown = ShutdownPrompts(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
@@ -198,6 +200,7 @@ class Aiwa:
         self.bedtime.step(now, active)
         self.morning.step(now, active, in_session=self.session is not None)
         self.routines.step(now, active, away_since=latest.start if latest is not None and latest.away else None)
+        self.reminder_prompts.step(now, active, in_session=self.session is not None)
         self.update_scoreboard(now)
         self.capture.refresh()
         focus = moment(segments, now, self.config.focus.main_horizon, self.config.focus).intensity
