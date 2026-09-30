@@ -12,11 +12,10 @@ def seg(start_h, hours, domain):
     return Segment(start, start + timedelta(hours=hours), "Chrome", url=f"https://{domain}/", category=Category.DEEP)
 
 
-def test_time_serving_goals_comes_from_sessions_and_notes():
+def test_unserved_time_is_sites_that_serve_no_goal_and_gave_no_tasks():
     segments = [seg(0, 2, "github.com"), seg(3, 3, "facebook.com"), seg(7, 1, "mail.google.com")]
-    sessions = [(T0, T0 + timedelta(hours=1, minutes=30), 7)]  # a session for goal 7 covers 1.5 h of github
-    sites = site_weeks(segments, sessions, notes=[("mail.google.com", True), ("facebook.com", False)])
-    assert sites["github.com"].served == {7: 90} and sites["github.com"].unserved == 30
+    sites = site_weeks(segments, {"github.com": {7}}, notes=[("mail.google.com", True), ("facebook.com", False)])
+    assert sites["github.com"].serves == {7} and sites["github.com"].unserved == 0
     assert sites["facebook.com"].unserved == 180
     assert sites["mail.google.com"].unserved == 0  # a note there became a task
 

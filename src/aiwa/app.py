@@ -42,6 +42,8 @@ from aiwa.sprint_prompts import SprintPrompts
 from aiwa.core.sprint import Sprint
 from aiwa.core.hub import HubWatch
 from aiwa.core.craftsman import WorthAsking, pick, site_weeks
+from aiwa.core.association import AssociationParams, contributions, pair_minutes
+from aiwa.ui.background import Background
 from aiwa.craftsman_prompts import CraftsmanPrompts, verdict_lines
 from aiwa.core.grand import grand_session
 from aiwa.shutdown_prompts import ShutdownPrompts
@@ -168,12 +170,15 @@ class Aiwa:
                                           next_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
         self.grand: str | None = None  # the grand gesture's one thing, while one runs
         self.sprint_prompts = SprintPrompts(self.popup, self.start_sprint,
-                                            next_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
+                                            next_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1],
+                                            new_task=lambda: self.tasks.new_task())
         self.sprint: Sprint | None = None
         self.hub = HubWatch()
         self.craftsman = CraftsmanPrompts(self.store, self.popup, start_test=lambda key: self.experiments.start_for(key))
         self.worth_asking = WorthAsking()
         self._week_sites: tuple[datetime, dict] | None = None
+        self._computing = False
+        self.background = Background()
         self.meditation = MeditationPrompts(self.store, self.popup, self.start_walk,
                                             current_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
         self.shutdown = ShutdownPrompts(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
@@ -233,6 +238,7 @@ class Aiwa:
         self.experiments.check_due(now, active)
         self.update_scoreboard(now)
         self.capture.refresh()
+        self.week_sites(now)  # keeps the craftsman data fresh (hourly, in the background)
         focus = moment(segments, now, self.config.focus.main_horizon, self.config.focus).intensity
         self.shutdown.check(now, active, in_session=self.session is not None, intensity=focus)
         self.prompts.check_block(now, in_session=self.session is not None)
@@ -307,24 +313,38 @@ class Aiwa:
         ))
 
     def week_sites(self, now: datetime) -> dict:
-        """This week's sites/apps: time, time serving goals (core/craftsman.py). Cached briefly."""
-        if self._week_sites is not None and now - self._week_sites[0] < timedelta(minutes=10):
-            return self._week_sites[1]
+        """This week's sites/apps with the goals they serve (craftsman check); refreshed hourly in
+        the background, since four weeks of history take a few seconds to read. Empty until ready."""
+        if (self._week_sites is None or now - self._week_sites[0] >= timedelta(hours=1)) and not self._computing:
+            self._computing = True
+            self.background.run(lambda: self.compute_week_sites(now), self._week_sites_ready)
+        return self._week_sites[1] if self._week_sites else {}
+
+    def _week_sites_ready(self, result) -> None:
+        self._computing = False
+        if result is not None:
+            self._week_sites = result
+
+    def compute_week_sites(self, now: datetime) -> tuple[datetime, dict]:
+        """(runs in a worker thread) Pairs (goal, window) over the lookback → what serves which goal;
+        then this week's sites (core/association.py, core/craftsman.py)."""
+        store = Store(DB_PATH)  # its own connection: SQLite connections stay in their thread
+        params = AssociationParams()
+        since = now - params.lookback
+        categorizer = Categorizer(self.config.categories, store)
+        segments = [s for s in prepare(self.collector.between(since, now), self.config, categorizer)
+                    if s.app != UNTRACKED]
+        sessions = [(a, b or now, g) for a, b, _, _, g in store.sessions_between(since, now)]
+        contributes = contributions(pair_minutes(segments, sessions), params)
+        for key, (verdict, group, _) in store.verdicts().items():
+            if verdict == "serves" and group is not None:  # the user's answer wins
+                contributes.setdefault(key, set()).add(group)
         today = self.rhythm.today(now)
         _, week_from, _ = day_bounds(datetime.combine(week_start(today), time(12)).astimezone(), self.config.day_starts)
-        try:
-            segments = prepare(self.collector.between(week_from, now), self.config, self.categorizer)
-        except OSError:
-            return {}
-        segments = [s for s in segments if s.app != UNTRACKED]
-        sessions = [(a, b or now, g) for a, b, _, _, g in self.store.sessions_between(week_from, now)]
-        notes = []
-        for url, app, became_task in self.store.note_sources(week_from):
-            if url or app:
-                notes.append((Segment(now, now, app or "", url=url).key, became_task))
-        sites = site_weeks(segments, sessions, notes)
-        self._week_sites = (now, sites)
-        return sites
+        notes = [(Segment(now, now, app or "", url=url).key, became_task)
+                 for url, app, became_task in store.note_sources(week_from) if url or app]
+        week = [s for s in segments if s.end > week_from]
+        return now, site_weeks(week, contributes, notes)
 
     def tools_check(self, now: datetime) -> None:
         """The craftsman question: one site per weekly review, picked by the rule."""

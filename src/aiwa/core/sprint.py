@@ -1,9 +1,8 @@
 """Work like Roosevelt (Deep Work, rule 1): a short, intense burst on one task with a
 deadline tighter than feels comfortable, counting down.
 
-The deadline is the task's own estimate (a task typed in on the spot has no
-estimate: then a few lengths to pick from). At the deadline: done, 5 more
-minutes, or stop.
+The deadline is the task's own estimate. At the deadline: done, 5 more minutes,
+or stop.
 """
 
 from __future__ import annotations
@@ -14,7 +13,6 @@ from datetime import datetime, timedelta
 
 @dataclass(frozen=True)
 class SprintParams:
-    options: tuple[int, ...] = (15, 25, 40)  # for a task without an estimate
     extension: int = 5  # "5 more minutes"
 
 

@@ -415,13 +415,20 @@ Build order: morning start → routine questions → offline tasks → consisten
 - Depth philosophies other than rhythmic: not now.
 
 ## Decisions 2026-09-30: craftsman check (testing the idea)
-- Per site/app per week: minutes; minutes inside sessions for each goal group (served);
-  notes there that became tasks (useful input → counts as served). Unserved = the rest.
+- **Which windows serve which goal is learned** (the user's design, `core/association.py`):
+  pairs (T, W) over the last 4 weeks; T = the active task's goal group (the session's
+  group), or "open" without an active task; W = the window (domain/app). Minutes per
+  pair; open minutes weigh 0.25 (task time says more). lift = P(W | T) / P(W); rule
+  `Contributes`: threshold 1.5, softness 0.3, only with 30+ min of W during T; it
+  classifies (chance ≥ 50%), not sampled. Recomputed hourly in the background.
+- A site's week is "unserved" when it serves no goal and none of its notes became a
+  task. The user's "serves this goal" answer always counts.
 - Rule `WorthAsking`: unserved hours, threshold 2 h (50%), softness 30 min; never for
   sites counted as deep (it's about network tools, not work tools).
-- Once per weekly review (a step after "what will you change?"): "facebook.com took 3h 07m
-  this week and 3h 07m served none of your goals. Does it substantially help any of
+- Once per weekly review (a step after "what will you change?"): "facebook.com took 3h 06m
+  this week and 3h 06m served none of your goals. Does it substantially help any of
   them?" → a goal group / A little / No; No → offer the 30-day test without it.
   Each site asked once; later reviews show "Tools you judged: … (then vs. now)".
-- Caveat: sessions record their goal group only since 2026-09-29, so "served" is still
-  underestimated for older sessions.
+- Caveat: sessions record their goal group only since 2026-09-29; most time has no active
+  task, so links need a while to appear.
+- Sprint without a task: offers to add one (no typed-in sprints).
