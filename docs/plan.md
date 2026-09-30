@@ -446,3 +446,21 @@ Build order: morning start → routine questions → offline tasks → consisten
 - "Be lazy": late work after the shutdown, counted and shown in the weekly review only.
 - Proposed, not decided: the task list (scheduling, dependencies, blockers), calendar
   (read-only; aiwa as an MCP server), protected time slots, earned breaks.
+
+## Decisions 2026-10-01: decision pipelines, input, tasks, adapters
+- **Pipelines** (`core/rules/pipeline.py`): numbered levels of atomic rules that vote; a
+  level approves with a majority by default (or a given number, e.g. all); level n+1
+  only votes if level n approved; the action runs when all levels approve. Levels have
+  no semantics yet, just numbers. Rules read named **signals**; `Signal` is the generic
+  rule on one signal (threshold / softness / direction / range): rules as data, the
+  start of a config-defined system ("a minimal compiler").
+- First pipeline: suggest a session when focus builds up outside one
+  (`core/rules/suggest_session.py`): level 1 (all): not in session, not after shutdown,
+  no popup, ≥ 45 min (±10) since the last suggestion; level 2 (majority): 2-min focus
+  rose ≥ 0.15 (±0.05) over 2 min, 5-min focus ≥ 0.5 (±0.1), on a deep site/app.
+  Checked once a minute.
+- Existing prompts move onto pipelines over time.
+- Low-focus threshold, later: the user's 0.4 quantile of the 2-min score (their median
+  is high, but mostly outside sessions); nothing now. Grading stays fixed.
+- Tasks: use **taskchampion-py** (Taskwarrior's engine) for dependencies, waiting,
+  scheduling.

@@ -41,6 +41,8 @@ from aiwa.grand_prompts import GrandPrompts
 from aiwa.sprint_prompts import SprintPrompts
 from aiwa.core.sprint import Sprint
 from aiwa.core.hub import HubWatch
+from aiwa.core.rules.base import Cadence
+from aiwa.core.rules.suggest_session import suggest_session
 from aiwa.core.craftsman import WorthAsking, pick, site_weeks
 from aiwa.core.association import AssociationParams, contributions, pair_minutes
 from aiwa.ui.background import Background
@@ -174,6 +176,9 @@ class Aiwa:
                                             new_task=lambda: self.tasks.new_task())
         self.sprint: Sprint | None = None
         self.hub = HubWatch()
+        self.suggest_pipeline = suggest_session()
+        self.suggest_cadence = Cadence(timedelta(minutes=1))
+        self.last_suggested: datetime | None = None
         self.craftsman = CraftsmanPrompts(self.store, self.popup, start_test=lambda key: self.experiments.start_for(key))
         self.worth_asking = WorthAsking()
         self._week_sites: tuple[datetime, dict] | None = None
@@ -238,6 +243,7 @@ class Aiwa:
         self.experiments.check_due(now, active)
         self.update_scoreboard(now)
         self.capture.refresh()
+        self.check_suggest_session(segments, latest, now)
         self.week_sites(now)  # keeps the craftsman data fresh (hourly, in the background)
         focus = moment(segments, now, self.config.focus.main_horizon, self.config.focus).intensity
         self.shutdown.check(now, active, in_session=self.session is not None, intensity=focus)
@@ -541,6 +547,32 @@ class Aiwa:
         self.alarm.stop()
         if response == "stop":
             self.stop_session(datetime.now(timezone.utc))
+
+    def signals(self, segments: list[Segment], latest: Segment | None, now: datetime) -> dict:
+        """Named quantities for the decision pipelines (core/rules/pipeline.py)."""
+        short = self.config.focus.horizons[0]
+        focus_2m = moment(segments, now, short, self.config.focus).intensity
+        before = moment(segments, now - timedelta(minutes=2), short, self.config.focus).intensity
+        since = (now - self.last_suggested).total_seconds() / 60 if self.last_suggested else 10_000
+        return {
+            "in_session": self.session is not None,
+            "shutdown_done": self.shutdown.done_today(now),
+            "popup_open": self.popup.isVisible(),
+            "focus_2m": focus_2m,
+            "focus_rise": None if focus_2m is None or before is None else focus_2m - before,
+            "focus_5m": moment(segments, now, self.config.focus.main_horizon, self.config.focus).intensity,
+            "on_deep": latest is not None and not latest.away and latest.category is Category.DEEP,
+            "minutes_since_suggested": since,
+        }
+
+    def check_suggest_session(self, segments: list[Segment], latest: Segment | None, now: datetime) -> None:
+        """Outside a session, focus is building up → "start a session?" (a pipeline)."""
+        if not self.suggest_cadence.due(now) or not self.suggest_pipeline.decide(self.signals(segments, latest, now)):
+            return
+        self.last_suggested = now
+        self.popup.ask("You're getting into it. Start a focus session to protect this?",
+                       lambda a: self.tasks.request_session(self.start_session) if a == "start" else None,
+                       [("Start session", "start"), ("Not now", "no")])
 
     def update_scoreboard(self, now: datetime) -> None:
         try:
