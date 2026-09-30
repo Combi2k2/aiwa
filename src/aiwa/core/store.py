@@ -147,7 +147,8 @@ CREATE TABLE IF NOT EXISTS absences (
     start TEXT NOT NULL,            -- last activity before it (UTC)
     end TEXT NOT NULL,              -- first activity after it (UTC)
     activity TEXT,                  -- e.g. 'meal', 'shower' (core/routines.py TAXONOMY); NULL = unknown
-    source TEXT NOT NULL,           -- 'still_there' (openjev: they stayed at the computer, not asked),
+    source TEXT NOT NULL,           -- 'present' (the user: I was here), 'still_there' (openjev: they stayed
+                                    -- at the computer, not asked),
                                     -- 'user' (picked), 'jev' (typed, openjev sure), 'jev_unsure' (openjev's guess,
                                     -- not confirmed), 'typed' (no openjev), 'auto' (overnight → sleep), 'unasked', 'skipped'
     note TEXT,                      -- what the user typed
@@ -567,6 +568,17 @@ class Store:
             " WHERE status = 'open' AND source_app IS NOT NULL"
         ).fetchall()
         return [(i, Source(app, title, url, "")) for i, app, title, url in rows]
+
+    def mark_present(self, start: datetime, end: datetime, activity: str) -> int:
+        """Record [start, end) as time at the computer (the user said they weren't away), not as away."""
+        from aiwa.core.scoreboard.ledger import MINUTE, MinuteEntry, minute_floor
+
+        entries, minute = [], minute_floor(start)
+        while minute + MINUTE <= end:
+            entries.append(MinuteEntry(minute, None, activity))
+            minute += MINUTE
+        self.save_minutes(entries)
+        return len(entries)
 
     def mark_offline_work(self, start: datetime, end: datetime) -> int:
         """Record [start, end) as deep work done offline (it shows as away otherwise). Returns minutes."""

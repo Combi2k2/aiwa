@@ -38,7 +38,7 @@ class RoutinePrompts:
         self.bedtime = bedtime
         self.day_starts = day_starts
         self.tracker = AbsenceTracker(always_ask=always_ask)
-        self.pending: tuple[int, Absence] | None = None  # waiting for the popup to be free
+        self.pending: tuple[int, Absence, Segment | None] | None = None  # waiting for the popup to be free
         self.offline_task = False  # the absence ending now was work on an offline task: don't ask
 
     def offline_work_done(self) -> None:
@@ -63,18 +63,18 @@ class RoutinePrompts:
                     kind = self.store.get_kind(before.key)
                     context = self._context(absence, before, kinds.label(kind[0]) if kind and kind[0] != "other" else None)
                     self.background.run(lambda: self.still_there(context),
-                                        lambda p: self._checked(absence_id, absence, p))
+                                        lambda p: self._checked(absence_id, absence, before, p))
                 else:
-                    self.pending = (absence_id, absence)
+                    self.pending = (absence_id, absence, before)
             else:
                 self.store.add_absence(absence.start, absence.end, None, "unasked")
         if active:
             self.offline_task = False
         if self.pending and not self.popup.isVisible():
-            absence_id, absence = self.pending
+            absence_id, absence, left_on = self.pending
             self.pending = None
             if now - absence.end <= STALE:
-                self._ask(absence_id, absence)
+                self._ask(absence_id, absence, left_on)
 
     @staticmethod
     def _context(absence: Absence, left_on: Segment, kind_label: str | None = None) -> str:
@@ -87,13 +87,28 @@ class RoutinePrompts:
                 f"{int(absence.duration.total_seconds() // 60)} minutes, starting at {absence.start.astimezone():%H:%M}. "
                 f"The window in focus the whole time: {left_on.key} (a {kind}{counted}).")
 
-    def _checked(self, absence_id: int, absence: Absence, probability: float | None) -> None:
+    def _checked(self, absence_id: int, absence: Absence, left_on: Segment | None, probability: float | None) -> None:
         if probability is not None and self.skip_rule.decide(probability):
             self.store.set_absence_activity(absence_id, None, "still_there", confidence=probability)
             return  # openjev is sure they were watching / listening / reading: don't ask
-        self.pending = (absence_id, absence)
+        self.pending = (absence_id, absence, left_on)
 
-    def _ask(self, absence_id: int, absence: Absence) -> None:
+    def _ask(self, absence_id: int, absence: Absence, left_on: Segment | None = None) -> None:
+        """First: were you away at all? Only then: what did you do?"""
+        minutes = minutes_text(int(absence.duration.total_seconds() // 60))
+        self.popup.ask(
+            f"No input for {minutes} (since {absence.start.astimezone():%H:%M}). Were you away from the computer?",
+            lambda a: self._ask_what(absence_id, absence) if a == "away" else self._present(absence_id, absence, left_on),
+            [("Yes, I was away", "away"), ("No, I was here", "here")],
+        )
+
+    def _present(self, absence_id: int, absence: Absence, left_on: Segment | None) -> None:
+        """Not away after all (reading, watching, thinking): that time was at the computer."""
+        self.store.set_absence_activity(absence_id, None, "present")
+        activity = left_on.category.value if left_on is not None and left_on.category else "unclassified"
+        self.store.mark_present(absence.start, absence.end, activity)
+
+    def _ask_what(self, absence_id: int, absence: Absence) -> None:
         self.popup.ask_text(
             f"You were away for {minutes_text(int(absence.duration.total_seconds() // 60))}. What did you do?",
             lambda text: self._typed(absence_id, text),

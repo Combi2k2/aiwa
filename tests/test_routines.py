@@ -135,3 +135,11 @@ def test_context_for_openjev_has_no_titles():
     assert "25 minutes" in text
     assert "youtube.com (a website for video streaming, which the person counts as distraction)" in text
     assert "Episode" not in text and "watch?v" not in text
+
+
+def test_i_was_here_counts_the_time_at_the_computer(tmp_path):
+    from aiwa.core.store import Store
+
+    store = Store(tmp_path / "db")
+    assert store.mark_present(at(0), at(12), "deep") == 12
+    assert {e.activity for e in store.minutes(at(0), at(12))} == {"deep"}

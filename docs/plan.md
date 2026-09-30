@@ -432,3 +432,17 @@ Build order: morning start → routine questions → offline tasks → consisten
 - Caveat: sessions record their goal group only since 2026-09-29; most time has no active
   task, so links need a while to appear.
 - Sprint without a task: offers to add one (no typed-in sprints).
+
+## Decisions 2026-09-30: "were you away?", grading, input, tasks, calendar
+- After a break (and openjev's veto): "No input for 25m (since 20:18). Were you away from
+  the computer?" → No, I was here: nothing more; those minutes count as time on what was
+  on screen (its category), not away. Yes → "What did you do?" as before.
+- **Grading stays fixed (not data-driven)**, so progress is comparable over time. (A
+  data-driven score would reward effort, but hide progress.) Open question: does the
+  "personal low-focus threshold" task (#26) still make sense, only for *when to nudge*?
+- Presence already comes from input: ActivityWatch's AFK watcher resets on any mouse or
+  key input, so a small scroll while reading is enough. aw-watcher-input would add input
+  *counts* (intensity), not presence.
+- "Be lazy": late work after the shutdown, counted and shown in the weekly review only.
+- Proposed, not decided: the task list (scheduling, dependencies, blockers), calendar
+  (read-only; aiwa as an MCP server), protected time slots, earned breaks.
