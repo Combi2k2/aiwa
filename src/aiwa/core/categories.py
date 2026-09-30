@@ -6,6 +6,7 @@ from collections import Counter
 from dataclasses import replace
 from datetime import timedelta
 
+from aiwa import platforms
 from aiwa.config import UNTRACKED, CategoryRule, Config
 from aiwa.core.events import Category, Segment
 from aiwa.core.store import Store
@@ -41,6 +42,8 @@ def prepare(segments: list[Segment], config: Config, categorizer: Categorizer) -
     Untracked activity keeps its category (so a distraction still counts as
     one) but loses its app name, title and URL.
     """
+    lock_apps = platforms.current().LOCK_APPS
+    segments = [replace(s, away=True) if s.app in lock_apps else s for s in segments]  # a locked screen is away
     categorized = [s if s.away else replace(s, category=categorizer.categorize(s)) for s in segments]
     kinds: dict[str, str | None] = {}
 

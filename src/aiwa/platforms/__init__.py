@@ -5,6 +5,7 @@
     autostart_installed() -> bool
     ACTIVITYWATCH_DIRS: list[Path]   where ActivityWatch's programs usually are
     EXECUTABLE_SUFFIX: str           "" or ".exe"
+    LOCK_APPS: set[str]              the lock screen / screen saver (time on it counts as away)
     SYSTEM_APPS: set[str]            system windows never worth a question (plus the `ignore_apps` setting)
     lock_screen() -> None            lock the screen / put the display to sleep
     close_tab(app, url) -> bool      close a browser tab (False: couldn't)

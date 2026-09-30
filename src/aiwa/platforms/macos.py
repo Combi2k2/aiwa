@@ -13,6 +13,9 @@ ACTIVITYWATCH_DIRS = [
 ]
 EXECUTABLE_SUFFIX = ""
 
+# the lock screen / screen saver: time on it is time away
+LOCK_APPS = {"loginwindow", "ScreenSaverEngine"}
+
 # system windows that come and go on their own; never worth a question
 SYSTEM_APPS = {
     "loginwindow", "Dock", "SystemUIServer", "ControlCenter", "NotificationCenter",

@@ -41,3 +41,14 @@ def test_tools_take_the_category_of_the_work_before():
 def test_tools_without_recent_work_keep_their_own_category():
     out = tools_take_context([seg(0, 5, "github.com", Category.DEEP), seg(30, 31, "google.com", Category.NEUTRAL)], kind_of)
     assert out[1].category is Category.NEUTRAL
+
+
+def test_a_locked_screen_counts_as_away(tmp_path):
+    from aiwa.config import Config
+    from aiwa.core.categories import Categorizer, prepare
+    from aiwa.core.store import Store
+
+    config = Config()
+    locked = Segment(T0, T0 + timedelta(hours=8), "loginwindow")
+    out = prepare([locked], config, Categorizer(config.categories, Store(tmp_path / "db")))
+    assert all(s.away for s in out)

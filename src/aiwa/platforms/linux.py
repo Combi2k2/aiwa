@@ -14,6 +14,9 @@ DESKTOP_FILE = user_config_path("autostart") / "aiwa.desktop"
 ACTIVITYWATCH_DIRS = [Path.home() / "activitywatch", Path("/opt/activitywatch"), Path("/usr/lib/activitywatch")]
 EXECUTABLE_SUFFIX = ""
 
+# the lock screen / screen saver: time on it is time away
+LOCK_APPS = set()
+
 # system windows that come and go on their own; never worth a question
 SYSTEM_APPS = {"gnome-shell", "plasmashell", "xfdesktop", "unknown"}
 
