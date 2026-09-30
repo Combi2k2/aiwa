@@ -29,6 +29,12 @@ class FocusParams:
     horizons: tuple[timedelta, ...] = (timedelta(minutes=2), timedelta(minutes=5), timedelta(minutes=30))
     # period.py: a minute counts as deep when its main-horizon intensity is at least this
     deep_threshold: float = 0.6
+    # depth.py: creating vs. consuming, from input actions per minute (aw-watcher-input).
+    # Consuming time counts `consuming` of its category's weight; creating counts fully; in
+    # between a soft threshold (50% creating at `creating_at` actions/min). No input data → 1.
+    consuming: float = 0.8
+    creating_at: float = 10.0
+    creating_softness: float = 4.0
 
     @property
     def main_horizon(self) -> timedelta:

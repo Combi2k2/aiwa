@@ -26,6 +26,7 @@ class Segment:
     url: str | None = None
     category: Category | None = None  # None = not classified yet
     away: bool = False
+    inputs: float | None = None  # input actions per minute (keys + clicks); None = no input data
 
     @property
     def duration(self) -> timedelta:

@@ -80,6 +80,44 @@ def _best_overlap(tabs: list[Tab], start: datetime, end: datetime) -> Tab | None
     return best
 
 
+InputEvent = tuple[datetime, datetime, float]  # start, end, input actions in it
+
+
+def input_actions(data: dict) -> float:
+    """aw-watcher-input counts both key-down and key-up: half the presses, plus clicks."""
+    return data.get("presses", 0) / 2 + data.get("clicks", 0)
+
+
+def attach_inputs(segments: list[Segment], inputs: list[InputEvent]) -> list[Segment]:
+    """Each segment's input actions per minute (from aw-watcher-input); unchanged without input data."""
+    if not inputs:
+        return segments
+    inputs = sorted(inputs)
+    result = []
+    for segment in segments:
+        minutes = segment.duration.total_seconds() / 60
+        if segment.away or minutes <= 0:
+            result.append(segment)
+            continue
+        actions = 0.0
+        for start, end, count in inputs:
+            if start >= segment.end:
+                break
+            overlap = (min(end, segment.end) - max(start, segment.start)).total_seconds()
+            length = (end - start).total_seconds()
+            if overlap > 0 and length > 0:
+                actions += count * overlap / length
+        result.append(replace(segment, inputs=actions / minutes))
+    return result
+
+
+def _merged_inputs(a: Segment, b: Segment) -> float | None:
+    if a.inputs is None or b.inputs is None:
+        return a.inputs if b.inputs is None else b.inputs
+    ma, mb = a.duration.total_seconds(), b.duration.total_seconds()
+    return (a.inputs * ma + b.inputs * mb) / (ma + mb) if ma + mb else a.inputs
+
+
 def merge(segments: list[Segment], max_gap: timedelta = timedelta(seconds=5)) -> list[Segment]:
     """Join back-to-back segments that look the same (e.g. a title that keeps
     changing inside an untracked app), allowing small gaps between them."""
@@ -92,7 +130,7 @@ def merge(segments: list[Segment], max_gap: timedelta = timedelta(seconds=5)) ->
             == (segment.app, segment.title, segment.url, segment.category, segment.away)
             and segment.start - last.end <= max_gap
         ):
-            merged[-1] = replace(last, end=max(last.end, segment.end))
+            merged[-1] = replace(last, end=max(last.end, segment.end), inputs=_merged_inputs(last, segment))
         else:
             merged.append(segment)
     return merged

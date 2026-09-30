@@ -8,7 +8,7 @@ import requests
 
 from aiwa.config import Config
 from aiwa.core.events import Segment
-from aiwa.core.timeline import BROWSER_APPS, Tab, build
+from aiwa.core.timeline import BROWSER_APPS, Tab, attach_inputs, build, input_actions
 
 
 class Collector:
@@ -47,7 +47,8 @@ class Collector:
             Tab(s, e, data.get("url", ""), data.get("title", ""))
             for s, e, data in events("web.tab.current")
         ]
-        return build(windows, away, tabs)
+        inputs = [(s, e, input_actions(data)) for s, e, data in events("os.hid.input")]
+        return attach_inputs(build(windows, away, tabs), inputs)
 
     def current(self) -> Segment | None:
         """What is in focus right now (cheap: only the latest event per bucket).

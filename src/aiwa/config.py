@@ -36,6 +36,9 @@ port = 5600
 # own tray icon isn't needed. If ActivityWatch is already running, aiwa leaves it alone.
 manage = true
 modules = ["aw-server", "aw-watcher-afk", "aw-watcher-window"]
+# started too when found (ActivityWatch's app includes aw-watcher-input): counts of key
+# presses and clicks (never which keys), to tell creating from consuming
+optional_modules = ["aw-watcher-input"]
 
 [analysis]
 poll_seconds = 15      # how often to re-analyze recent activity (tray status, focus, nudges)
@@ -210,6 +213,7 @@ class Config:
     aw_port: int = 5600
     aw_manage: bool = True
     aw_modules: list[str] = field(default_factory=lambda: ["aw-server", "aw-watcher-afk", "aw-watcher-window"])
+    aw_optional_modules: list[str] = field(default_factory=lambda: ["aw-watcher-input"])
     poll_seconds: int = 15
     lookback_minutes: int = 30
     min_minutes_between_nudges: int = 20
@@ -275,6 +279,7 @@ def parse(raw: dict) -> Config:
         aw_port=aw.get("port", 5600),
         aw_manage=aw.get("manage", True),
         aw_modules=aw.get("modules", ["aw-server", "aw-watcher-afk", "aw-watcher-window"]),
+        aw_optional_modules=aw.get("optional_modules", ["aw-watcher-input"]),
         poll_seconds=analysis.get("poll_seconds", 15),
         lookback_minutes=analysis.get("lookback_minutes", 30),
         min_minutes_between_nudges=nudges.get("min_minutes_between", 20),

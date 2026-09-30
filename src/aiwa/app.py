@@ -749,7 +749,8 @@ def start_activitywatch(config: Config) -> ActivityWatchSupervisor | None:
     if not config.aw_manage:
         return None
     os_support = platforms.current()
-    commands = find_commands(os_support.ACTIVITYWATCH_DIRS, os_support.EXECUTABLE_SUFFIX, config.aw_modules)
+    commands = find_commands(os_support.ACTIVITYWATCH_DIRS, os_support.EXECUTABLE_SUFFIX, config.aw_modules,
+                             config.aw_optional_modules)
     if commands is None:
         print("ActivityWatch not found; start it yourself or set [activitywatch] manage = false", flush=True)
         return None

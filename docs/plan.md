@@ -464,3 +464,11 @@ Build order: morning start → routine questions → offline tasks → consisten
   is high, but mostly outside sessions); nothing now. Grading stays fixed.
 - Tasks: use **taskchampion-py** (Taskwarrior's engine) for dependencies, waiting,
   scheduling.
+- **Creating vs. consuming** (the user's idea): aw-watcher-input (bundled with the
+  ActivityWatch app; started by aiwa when found) counts key presses and clicks every 5 s
+  (counts only). Input actions/min = presses / 2 (down and up are both counted) + clicks.
+  Depth weight × mode: creating 1, consuming 0.8, soft in between (rule: 50% creating at
+  10 actions/min, softness 4). No input data → as before. Ranking: creating > consuming
+  good content > social media (0). Thresholds to check once there's a day of input data.
+- **Adapters for external tools**: see the conversation of 2026-10-01 (MCP client,
+  Composio / Nango, plain libraries).

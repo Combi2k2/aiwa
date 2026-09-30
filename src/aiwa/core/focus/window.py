@@ -15,6 +15,7 @@ class Stretch:
     item: str
     category: Category | None
     seconds: float
+    inputs: float | None = None  # input actions per minute (time-weighted); None = no input data
 
 
 @dataclass(frozen=True)
@@ -73,8 +74,11 @@ def slice_window(segments: list[Segment], end: datetime, horizon: timedelta) -> 
         if seconds <= 0:
             continue
         if continuing and stretches and stretches[-1].item == item:
-            stretches[-1] = Stretch(item, segment.category, stretches[-1].seconds + seconds)
+            last = stretches[-1]
+            inputs = last.inputs if segment.inputs is None else segment.inputs if last.inputs is None else (
+                (last.inputs * last.seconds + segment.inputs * seconds) / (last.seconds + seconds))
+            stretches[-1] = Stretch(item, segment.category, last.seconds + seconds, inputs)
         else:
-            stretches.append(Stretch(item, segment.category, seconds))
+            stretches.append(Stretch(item, segment.category, seconds, segment.inputs))
 
     return Window(end, horizon, stretches, switches)

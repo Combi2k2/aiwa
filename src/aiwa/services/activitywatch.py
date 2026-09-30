@@ -11,6 +11,7 @@ up (a crash); aiwa remembers their process ids and takes them over.
 from __future__ import annotations
 
 import os
+import shutil
 import signal
 import sys
 import subprocess
@@ -131,23 +132,35 @@ def _is_activitywatch(pid: int, commands: dict[str, list[str]]) -> bool:
     return any(command[0] in name for command in commands.values())
 
 
-def find_commands(directories: list[Path], suffix: str, modules: list[str]) -> dict[str, list[str]] | None:
-    """Command lines for `modules` from the first directory that has all of them.
+def find_commands(directories: list[Path], suffix: str, modules: list[str],
+                  optional: list[str] = ()) -> dict[str, list[str]] | None:
+    """Command lines for `modules` from the first directory that has all of them, plus
+    the `optional` ones found anywhere (e.g. aw-watcher-input, installed with uv).
 
     Each program is either right in the directory (macOS app bundle) or in a
     folder of its own name (Windows and Linux: `aw-server/aw-server.exe`).
     """
+    def find(directory: Path, m: str) -> Path | None:
+        for candidate in (directory / f"{m}{suffix}", directory / m / f"{m}{suffix}"):
+            if candidate.is_file():
+                return candidate
+        return None
+
     for directory in directories:
-        paths = {}
-        for m in modules:
-            for candidate in (directory / f"{m}{suffix}", directory / m / f"{m}{suffix}"):
-                if candidate.is_file():
-                    paths[m] = candidate
-                    break
+        paths = {m: p for m in modules if (p := find(directory, m))}
         if len(paths) == len(modules):
             ordered = sorted(modules, key=lambda m: m != SERVER)  # server first
-            return {m: [str(paths[m])] for m in ordered}
+            commands = {m: [str(paths[m])] for m in ordered}
+            extra_dirs = [*directories, UV_TOOLS]
+            for m in optional:
+                found = next((p for d in extra_dirs if (p := find(d, m))), None) or shutil.which(m)
+                if found:
+                    commands[m] = [str(found)]
+            return commands
     return None
+
+
+UV_TOOLS = Path.home() / ".local" / "bin"  # where `uv tool install` puts programs (if not in ActivityWatch's folder)
 
 
 def server_check(host: str, port: int) -> Callable[[], bool]:

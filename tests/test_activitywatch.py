@@ -65,3 +65,18 @@ def test_find_commands_in_per_program_folders(tmp_path):
     commands = find_commands([tmp_path], ".exe", ["aw-watcher-afk", "aw-server"])
     assert list(commands) == ["aw-server", "aw-watcher-afk"]
     assert commands["aw-server"] == [str(tmp_path / "aw-server" / "aw-server.exe")]
+
+
+def test_optional_watchers_are_found_elsewhere_or_skipped(tmp_path, monkeypatch):
+    import aiwa.services.activitywatch as aw
+
+    app, tools = tmp_path / "app", tmp_path / "tools"
+    app.mkdir(), tools.mkdir()
+    for m in ["aw-server", "aw-watcher-afk"]:
+        (app / m).write_text("")
+    monkeypatch.setattr(aw, "UV_TOOLS", tools)
+    monkeypatch.setattr(aw.shutil, "which", lambda name: None)
+    assert "aw-watcher-input" not in find_commands([app], "", ["aw-server", "aw-watcher-afk"], ["aw-watcher-input"])
+    (tools / "aw-watcher-input").write_text("")
+    found = find_commands([app], "", ["aw-server", "aw-watcher-afk"], ["aw-watcher-input"])
+    assert found["aw-watcher-input"] == [str(tools / "aw-watcher-input")]
