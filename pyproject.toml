@@ -18,8 +18,19 @@ aiwa = "aiwa.cli:main"
 dev = ["pytest>=8"]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# the code lives in src/ and is imported as `aiwa` (tests/test_packaging.py checks this list)
+package-dir = {"aiwa" = "src"}
+packages = [
+    "aiwa", "aiwa.commands", "aiwa.core", "aiwa.core.focus", "aiwa.core.rules", "aiwa.core.scoreboard",
+    "aiwa.platforms", "aiwa.services", "aiwa.ui",
+]
+
+[tool.setuptools.package-data]
+aiwa = ["assets/sounds/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

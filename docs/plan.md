@@ -21,7 +21,7 @@ phased, shippable steps that use only what ActivityWatch and openjev can actuall
   if the user opts in).
 - Anything needing text generation (weekly summaries) uses templates for now.
 
-## Architecture changes (all in `src/aiwa/core/` unless noted)
+## Architecture changes (all in `src/core/` unless noted)
 | New module | Purpose | Reuses |
 |---|---|---|
 | `timeline.py` | Merge window + AFK + web (+ editor) buckets into `Segment(start, end, app, title, url, category, away)` | `collector.py` (extend `Collector` to read AFK/web buckets; keep the allowlist → `(untracked)` masking) |
@@ -117,7 +117,7 @@ Deep work still involves switching, but within a small set of related items (a
 **Docs only:** deep work hypothesis, memory training, making senders do more work, not responding to everything.
 
 ## Critical files
-- Modify: `src/aiwa/core/collector.py`, `core/analyzer.py`, `core/policy.py`, `core/store.py`,
+- Modify: `src/core/collector.py`, `core/analyzer.py`, `core/policy.py`, `core/store.py`,
   `core/rules/__init__.py`, `config.py`, `app.py`, `cli.py`, `ui/tray.py`, `ui/popup.py`
 - New: `core/timeline.py`, `categories.py`, `sessions.py`, `metrics.py`, `decider.py`,
   `rules/interruptions.py`, `rules/lull.py`, `ui/plan.py`, `ui/review.py`

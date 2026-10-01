@@ -113,7 +113,7 @@ component and parameter is described in `docs/components.md`.
 ## Layout
 
 ```
-src/aiwa/
+src/
   cli.py          entry point: starts the tray app; subcommands are developer tools
   commands/       one module per developer tool (check, focus, calibrate, ...)
   config.py       settings + app/window allowlist (TOML)
