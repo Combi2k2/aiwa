@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 from aiwa.config import Config
-from aiwa.core.events import Segment
+from aiwa.core.events import InputSample, Segment
 from aiwa.core.timeline import BROWSER_APPS, Tab, attach_inputs, build, input_actions
 
 
@@ -30,13 +30,7 @@ class Collector:
             raise RuntimeError("No ActivityWatch window bucket found. Is ActivityWatch running?")
 
         def events(bucket_type: str):
-            for bucket_id, info in buckets.items():
-                if info.get("type") != bucket_type:
-                    continue
-                params = {"start": start.isoformat(), "end": end.isoformat()}
-                for e in self._get(f"/buckets/{bucket_id}/events", params):
-                    begins = datetime.fromisoformat(e["timestamp"])
-                    yield begins, begins + timedelta(seconds=e["duration"]), e["data"]
+            return self._events(buckets, bucket_type, start, end)
 
         windows = [
             Segment(s, e, data.get("app", ""), data.get("title", ""))
@@ -49,6 +43,20 @@ class Collector:
         ]
         inputs = [(s, e, input_actions(data)) for s, e, data in events("os.hid.input")]
         return attach_inputs(build(windows, away, tabs), inputs)
+
+    def inputs(self, start: datetime, end: datetime) -> list[InputSample]:
+        """Raw input counts (aw-watcher-input) between `start` and `end`, oldest first."""
+        events = self._events(self._get("/buckets/"), "os.hid.input", start, end)
+        return sorted((InputSample.from_event(s, e, data) for s, e, data in events), key=lambda i: i.start)
+
+    def _events(self, buckets: dict, bucket_type: str, start: datetime, end: datetime):
+        for bucket_id, info in buckets.items():
+            if info.get("type") != bucket_type:
+                continue
+            params = {"start": start.isoformat(), "end": end.isoformat()}
+            for e in self._get(f"/buckets/{bucket_id}/events", params):
+                begins = datetime.fromisoformat(e["timestamp"])
+                yield begins, begins + timedelta(seconds=e["duration"]), e["data"]
 
     def current(self) -> Segment | None:
         """What is in focus right now (cheap: only the latest event per bucket).

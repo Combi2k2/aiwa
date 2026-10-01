@@ -1,7 +1,24 @@
 # Signals as time series (model, 2026-10-01)
 
 A signal is not a variable but a **time series**. Rules read a signal's current value,
-or a reduction of it. Decided with the user; not implemented as a registry yet.
+or a reduction of it.
+
+## Implemented (2026-10-01)
+
+- `signals/series.py`: `Piecewise` (sorted pieces start, end, value; equal neighbours merged;
+  gaps = unknown; the value at t is the piece with start < t ≤ end) and `Lazy` (known by
+  `at(t)`, sampled every 10 s when pieces are needed). Counts are rates per minute.
+- `signals/ops.py`: our own operators, not Polars (exact on intervals, no dependency):
+  `lift` (pointwise, also + − * / comparisons and / or / not), `delay`, and over a trailing
+  window `tssum` (∫ dt in minutes), `tsmean`, `tsmax`, `tsmin`, `tscount` (pieces begun).
+- `signals/primitive.py`: app, title, site, category, away, active (timeline);
+  keys, clicks, moved, scrolled (aw-watcher-input, per minute, `Context.inputs`).
+- `Signal.expr`: e.g. `Signal("keys_5m", "tsmean(keys, 5m)")`, evaluated by
+  `signals/expr.py` (Python syntax via `ast`, a whitelist, durations 30s / 5m / 2h / 1d).
+  Names: primitives, other signals (as series: re-evaluated at shifted moments), state values.
+  Signals without `expr` compute `eval` in Python (the focus score).
+- Not yet: state as a series (in_session is only known now), kinds per segment, history
+  beyond the lookback (reductions per day / week still live in metrics/).
 
 ## Series types
 

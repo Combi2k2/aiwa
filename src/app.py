@@ -211,7 +211,9 @@ class Aiwa:
             for module in self.activitywatch.check():
                 print(f"restarted {module}", flush=True)
         try:
-            raw = self.collector.timeline(timedelta(minutes=self.config.lookback_minutes))
+            lookback = timedelta(minutes=self.config.lookback_minutes)
+            raw = self.collector.timeline(lookback)
+            inputs = self.collector.inputs(now - lookback, now)
         except (OSError, RuntimeError) as e:  # ActivityWatch not running or not ready
             self.tray.set_status(f"waiting for ActivityWatch ({e.__class__.__name__})")
             return
@@ -228,7 +230,7 @@ class Aiwa:
         self.update_scoreboard(now)
         self.week_sites(now)  # keeps the craftsman data fresh (hourly, in the background)
         ctx = FlowContext(now, segments, latest, self.state(now), active=active, in_session=self.session_flow.session is not None,
-                          away_since=latest.start if latest is not None and latest.away else None)
+                          away_since=latest.start if latest is not None and latest.away else None, inputs=inputs)
         ctx.values = Values(self.signals, ctx)
         for flow in self.flows:
             flow.tick(ctx)

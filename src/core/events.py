@@ -16,6 +16,24 @@ class Category(Enum):
 
 
 @dataclass(frozen=True)
+class InputSample:
+    """What aw-watcher-input counted over [start, end) (one event, about 5 seconds)."""
+
+    start: datetime
+    end: datetime
+    keys: float = 0  # key presses (aw-watcher-input counts down and up: its `presses` / 2)
+    clicks: float = 0
+    moved: float = 0  # mouse movement, in pixels
+    scrolled: float = 0  # scrolling, in scroll units
+
+    @classmethod
+    def from_event(cls, start: datetime, end: datetime, data: dict) -> InputSample:
+        moved = abs(data.get("deltaX", 0)) + abs(data.get("deltaY", 0))
+        scrolled = abs(data.get("scrollX", 0)) + abs(data.get("scrollY", 0))
+        return cls(start, end, data.get("presses", 0) / 2, data.get("clicks", 0), moved, scrolled)
+
+
+@dataclass(frozen=True)
 class Segment:
     """A stretch of time with one thing in focus, or with the user away."""
 
