@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timezone
 from typing import Callable
 
+from aiwa.flows.base import Flow
 from aiwa.core import backlog
 from aiwa.core.backlog import Assessment, Group, Task
 from aiwa.metrics.day import day_bounds
@@ -20,7 +21,7 @@ from aiwa.ui.task_board import TaskBoard
 from aiwa.ui.task_form import TaskForm
 
 
-class TasksController:
+class TasksFlow(Flow):
     def __init__(
         self,
         store: Store,
@@ -245,4 +246,6 @@ class TasksController:
         if task:
             self._set_status(task, "done")
         self.offer_task()
+
+    name = "tasks"
 

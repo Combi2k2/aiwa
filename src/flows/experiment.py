@@ -9,6 +9,7 @@ from datetime import date, datetime, timezone
 from typing import Callable
 
 from aiwa import platforms
+from aiwa.flows.base import Flow, FlowContext
 from aiwa.core.backlog import minutes_text
 from aiwa.core.events import Segment
 from aiwa.core.experiment import DAYS, Experiment, SlipWatch, verdict
@@ -17,7 +18,7 @@ from aiwa.ui.background import Background
 from aiwa.ui.popup import Popup
 
 
-class ExperimentPrompts:
+class ExperimentFlow(Flow):
     def __init__(self, store: Store, popup: Popup, today: Callable[[datetime], date],
                  candidates: Callable[[], list[tuple[str, int]]]):
         self.store = store
@@ -114,6 +115,14 @@ class ExperimentPrompts:
         else:
             self.store.end_experiment(e.id, "ended", better, cared, now)
             self.popup.ask(f"Then go back to {e.key}, knowing what it's worth to you.", lambda _: None, [("OK", "ok")])
+
+    name = "30-day test"
+
+    def tick(self, ctx: FlowContext) -> None:
+        self.check_due(ctx.now, ctx.active)
+
+    def poll(self, ctx: FlowContext) -> None:
+        self.step(ctx.now, ctx.current)
 
 
 def experiment_lines(experiments: list[Experiment], today: date) -> list[str]:

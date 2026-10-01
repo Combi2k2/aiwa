@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from aiwa.core.morning import Action, MorningFlow, State, buffer_for
+from aiwa.core.morning import Action, MorningState, State, buffer_for
 
 T0 = datetime(2026, 9, 30, 7, 0, tzinfo=timezone.utc)
 
@@ -9,14 +9,14 @@ def at(minutes: float) -> datetime:
     return T0 + timedelta(minutes=minutes)
 
 
-def routine(minutes=30) -> MorningFlow:
-    m = MorningFlow()
+def routine(minutes=30) -> MorningState:
+    m = MorningState()
     m.step(at(0), True)
     m.start_routine(at(0), minutes)
     return m
 
 
-def away(m: MorningFlow, start: int, end: int) -> list:
+def away(m: MorningState, start: int, end: int) -> list:
     return [a for minute in range(start, end + 1) if (a := m.step(at(minute), False)) is not Action.NONE]
 
 
@@ -27,7 +27,7 @@ def test_buffer_is_20_percent_clamped_to_5_and_20_minutes():
 
 
 def test_greets_on_the_first_activity_only():
-    m = MorningFlow()
+    m = MorningState()
     assert m.step(at(0), active=False) is Action.NONE
     assert m.step(at(1), active=True) is Action.GREET
     assert m.step(at(2), active=True) is Action.NONE

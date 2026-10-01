@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import datetime, time, timedelta, timezone
 from typing import Callable
 
+from aiwa.flows.base import Flow, FlowContext
 from aiwa.core.backlog import minutes_text
 from aiwa.core.routines import ACTIVITY_LABEL, Absence, AbsenceTracker, confident_activity, likely_options, overnight
 from aiwa.core import kinds
@@ -24,7 +25,7 @@ STALE = timedelta(minutes=30)  # a question not asked within this long (popup bu
 NO_FOLLOW_UPS = "routines_no_follow_ups"  # state key: the user turned off "which one was it?"
 
 
-class RoutinePrompts:
+class RoutinesFlow(Flow):
     def __init__(self, store: Store, popup: Popup, bedtime: time, day_starts: time, always_ask: bool = False,
                  classify: Callable[[str], list[tuple[str, float]] | None] | None = None,
                  still_there: Callable[[str], float | None] | None = None, still_there_above: float = 0.7):
@@ -151,3 +152,9 @@ class RoutinePrompts:
             self.store.set_absence_activity(absence_id, None, "user")  # outside the taxonomy; the text stays
         else:
             self.store.set_absence_activity(absence_id, answer, "user")
+
+    name = "routines"
+
+    def tick(self, ctx: FlowContext) -> None:
+        self.step(ctx.now, ctx.active, away_since=ctx.away_since, in_focus=ctx.latest)
+

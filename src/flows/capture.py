@@ -9,18 +9,19 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from aiwa import platforms
+from aiwa.flows.base import Flow, FlowContext
 from aiwa.core.capture import CaptureParams, CaptureWatch, FollowUps, Source
 from aiwa.core.events import Category, Segment
 from aiwa.core.store import Store
-from aiwa.tasks_controller import TasksController
+from aiwa.flows.tasks import TasksFlow
 from aiwa.ui.background import Background
 from aiwa.ui.popup import Popup
 
 TODO_LIKELY = 0.5  # openjev at least this sure a note is a to-do → offer to add it as a task
 
 
-class CapturePrompts:
-    def __init__(self, store: Store, popup: Popup, tasks: TasksController,
+class CaptureFlow(Flow):
+    def __init__(self, store: Store, popup: Popup, tasks: TasksFlow,
                  is_todo: Callable[[str], float | None] | None, params: CaptureParams = CaptureParams()):
         self.store = store
         self.popup = popup
@@ -113,3 +114,13 @@ class CapturePrompts:
                 self.popup.ask(f"Couldn't close it ({source.app}); please close it yourself.", lambda _: None, [("OK", "ok")])
         self.refresh()
         self.tasks.refresh()
+
+    name = "capture"
+
+    def tick(self, ctx: FlowContext) -> None:
+        self.refresh()
+
+    def poll(self, ctx: FlowContext) -> None:
+        # after the workday is shut down, no more work questions
+        self.step(ctx.now, ctx.current, ctx.category, in_session=ctx.in_session or bool(ctx.state.get("shutdown_done")))
+

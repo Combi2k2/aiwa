@@ -6,13 +6,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Callable
 
+from aiwa.flows.base import Flow
 from aiwa.core.backlog import Task, minutes_text
 from aiwa.core.grand import GrandParams
 from aiwa.core.store import Store
 from aiwa.ui.popup import Popup
 
 
-class GrandPrompts:
+class GrandFlow(Flow):
     def __init__(self, store: Store, popup: Popup, start_grand: Callable[[str, int], None],
                  next_task: Callable[[], Task | None], params: GrandParams = GrandParams()):
         self.store = store
@@ -41,3 +42,6 @@ class GrandPrompts:
             lambda text: self.store.add_note(f"Grand gesture, “{what}”: {text}", None, datetime.now(timezone.utc))
             if text else None,
             placeholder="what's finished, what's next", skip_label="Skip")
+
+    name = "grand gesture"
+

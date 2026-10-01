@@ -46,7 +46,7 @@ class Action(Enum):
 
 
 @dataclass
-class MorningFlow:
+class MorningState:
     state: State = State.WAITING
     deadline: datetime | None = None
     away_since: datetime | None = None

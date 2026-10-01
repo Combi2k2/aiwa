@@ -32,37 +32,38 @@ from aiwa.core.policy import NudgePolicy
 from aiwa.rules import default_rules
 from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
-from aiwa.bedtime_prompts import BedtimePrompts
-from aiwa.capture_prompts import CapturePrompts
-from aiwa.meditation_prompts import MeditationPrompts
-from aiwa.reminder_prompts import ReminderPrompts
-from aiwa.experiment_prompts import ExperimentPrompts, experiment_lines
-from aiwa.grand_prompts import GrandPrompts
-from aiwa.sprint_prompts import SprintPrompts
+from aiwa.flows.bedtime import BedtimeFlow
+from aiwa.flows.capture import CaptureFlow
+from aiwa.flows.meditation import MeditationFlow
+from aiwa.flows.reminders import RemindersFlow
+from aiwa.flows.experiment import ExperimentFlow, experiment_lines
+from aiwa.flows.grand import GrandFlow
+from aiwa.flows.sprint import SprintFlow
 from aiwa.core.sprint import Sprint
-from aiwa.core.hub import HubWatch
-from aiwa.rules.base import Cadence
-from aiwa.rules.suggest_session import suggest_session
-from aiwa.signals.base import Context, Values
+from aiwa.signals.base import Values
+from aiwa.flows.base import Flow, FlowContext
+from aiwa.flows.budget import BudgetFlow
+from aiwa.flows.hub import HubFlow
+from aiwa.flows.suggest import SuggestSessionFlow
 from aiwa.signals.defaults import default_signals
 from aiwa.core.craftsman import WorthAsking, pick, site_weeks
 from aiwa.core.association import AssociationParams, contributions, pair_minutes
 from aiwa.ui.background import Background
-from aiwa.craftsman_prompts import CraftsmanPrompts, verdict_lines
+from aiwa.flows.craftsman import CraftsmanFlow, verdict_lines
 from aiwa.core.grand import grand_session
-from aiwa.shutdown_prompts import ShutdownPrompts
+from aiwa.flows.shutdown import ShutdownFlow
 from aiwa.core.backlog import minutes_text
-from aiwa.core.budget import ShallowBudget, shallow_share
+from aiwa.core.budget import shallow_share
 from aiwa.metrics.consistency import ConsistencyParams, consistency
 from aiwa.core.offline import OfflineWork
 from aiwa.core.meditation import is_walk
 from aiwa.metrics.history import deep_minutes
 from aiwa.core.shutdown import workday
 from aiwa.core.weekly import WeekFacts, review_due, review_text, week_start
-from aiwa.morning_prompts import MorningPrompts
-from aiwa.routine_prompts import RoutinePrompts
-from aiwa.rhythm_prompts import RhythmPrompts
-from aiwa.tasks_controller import TasksController
+from aiwa.flows.morning import MorningFlow
+from aiwa.flows.routines import RoutinesFlow
+from aiwa.flows.rhythm import RhythmFlow
+from aiwa.flows.tasks import TasksFlow
 from aiwa.services.activitywatch import ActivityWatchSupervisor, find_commands, server_check
 from aiwa.ui.board import budget_lines, consistency_lines, rhythm_lines, scoreboard_lines, sleep_lines, task_lines
 from aiwa.ui.popup import Popup
@@ -116,7 +117,6 @@ class Aiwa:
         )
         self.quota = QuotaKeeper(self.store, config.quota, config.day_starts, config.focus.deep_threshold)
         self.low_focus = LowAndNotRising(config.low_focus_below)
-        self.budget = ShallowBudget(config.shallow)
         self.alarm = Alarm(config.alarm_sound, config.alarm_volume)
         self.session: FocusSession | None = None
         self.session_id: int | None = None
@@ -144,60 +144,67 @@ class Aiwa:
             on_quit=QApplication.quit,
         )
         self.popup = Popup()
-        self.tasks = TasksController(
+        self.tasks = TasksFlow(
             self.store, self.popup, today=self.rhythm.today, day_starts=config.day_starts,
             deep_minutes_today=lambda now: self.scores.today(now).deep_minutes,
             assess=self.assess, suggest_group=self.suggest_group, helper=self.helper,
         )
-        self.bedtime = BedtimePrompts(
+        self.bedtime = BedtimeFlow(
             self.store, config.bedtime, config.day_starts, self.popup,
             # its own player: the session logic stops its alarm when focus is fine, which must not end this one
             alarm=Alarm(config.alarm_sound, config.alarm_volume),
             lock_screen=platforms.current().lock_screen, today=self.rhythm.today,
         )
-        self.morning = MorningPrompts(
+        self.morning = MorningFlow(
             self.store, self.popup, alarm=Alarm(config.alarm_sound, config.alarm_volume), today=self.rhythm.today,
             first_activity=lambda now: self.bedtime.last_night(now)[1],
             todays_work=self.todays_work,
             request_session=lambda: self.tasks.request_session(self.start_session),
         )
-        self.routines = RoutinePrompts(self.store, self.popup, config.bedtime.wind_down, config.day_starts,
+        self.routines = RoutinesFlow(self.store, self.popup, config.bedtime.wind_down, config.day_starts,
                                        always_ask=config.routines_always_ask,
                                        classify=(lambda text: classify_activity(openjev, text)) if openjev else None,
                                        still_there=(lambda context: still_there(openjev, context)) if openjev else None,
                                        still_there_above=config.routines_skip_if_still_there)
-        self.capture = CapturePrompts(self.store, self.popup, self.tasks,
+        self.capture = CaptureFlow(self.store, self.popup, self.tasks,
                                       (lambda note: is_todo(openjev, note)) if openjev else None)
-        self.reminder_prompts = ReminderPrompts(self.store, self.popup, config.day_starts)
-        self.experiments = ExperimentPrompts(self.store, self.popup, self.rhythm.today, self.distraction_candidates)
-        self.grand_prompts = GrandPrompts(self.store, self.popup, self.start_grand,
+        self.reminder_prompts = RemindersFlow(self.store, self.popup, config.day_starts)
+        self.experiments = ExperimentFlow(self.store, self.popup, self.rhythm.today, self.distraction_candidates)
+        self.grand_prompts = GrandFlow(self.store, self.popup, self.start_grand,
                                           next_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
         self.grand: str | None = None  # the grand gesture's one thing, while one runs
-        self.sprint_prompts = SprintPrompts(self.popup, self.start_sprint,
+        self.sprint_prompts = SprintFlow(self.popup, self.start_sprint,
                                             next_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1],
                                             new_task=lambda: self.tasks.new_task())
         self.sprint: Sprint | None = None
-        self.hub = HubWatch()
         self.signals = default_signals(config.focus)
-        self.suggest_pipeline = suggest_session()
-        self.suggest_cadence = Cadence(timedelta(minutes=1))
-        self.last_suggested: datetime | None = None
-        self.craftsman = CraftsmanPrompts(self.store, self.popup, start_test=lambda key: self.experiments.start_for(key))
+
+        self.craftsman = CraftsmanFlow(self.store, self.popup, start_test=lambda key: self.experiments.start_for(key))
         self.worth_asking = WorthAsking()
         self._week_sites: tuple[datetime, dict] | None = None
         self._computing = False
         self.background = Background()
-        self.meditation = MeditationPrompts(self.store, self.popup, self.start_walk,
+        self.meditation = MeditationFlow(self.store, self.popup, self.start_walk,
                                             current_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
-        self.shutdown = ShutdownPrompts(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
+        self.shutdown = ShutdownFlow(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
                                         self.shutdown_wrap_up, alarm=Alarm(config.alarm_sound, config.alarm_volume),
                                         weekly_review=self.weekly_review, save_review=self.save_weekly_review,
                                         tools_check=self.tools_check)
-        self.prompts = RhythmPrompts(
+        self.prompts = RhythmFlow(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
             request_session=lambda: self.tasks.request_session(self.start_session),
             ask_anything_new=self.tasks.ask_anything_new,
         )
+        request_session = lambda: self.tasks.request_session(self.start_session)
+        self.budget_flow = BudgetFlow(self.popup, config.shallow, config.shutdown, self.rhythm.today,
+                                      self.shallow_today, request_session)
+        self.suggest_flow = SuggestSessionFlow(self.popup, request_session)
+        self.hub_flow = HubFlow(self.popup, self.on_session_answer)
+        # the order flows run in, each tick / poll (earlier ones get the popup first)
+        self.flows: list[Flow] = [
+            self.bedtime, self.morning, self.routines, self.reminder_prompts, self.experiments, self.budget_flow,
+            self.capture, self.suggest_flow, self.shutdown, self.prompts, self.hub_flow,
+        ]
         self.timer = QTimer()
         self.timer.timeout.connect(self.tick)
         self.timer.start(config.poll_seconds * 1000)
@@ -238,21 +245,13 @@ class Aiwa:
         self.step_session(segments, now)
         latest = max(segments, key=lambda s: s.end) if segments else None
         active = latest is not None and not latest.away and now - latest.end <= NO_DATA_AFTER
-        self.bedtime.step(now, active)
-        self.morning.step(now, active, in_session=self.session is not None)
-        self.routines.step(now, active, away_since=latest.start if latest is not None and latest.away else None,
-                           in_focus=latest)
-        self.reminder_prompts.step(now, active, in_session=self.session is not None)
-        self.experiments.check_due(now, active)
         self.update_scoreboard(now)
-        self.capture.refresh()
-        self.check_suggest_session(segments, latest, now)
         self.week_sites(now)  # keeps the craftsman data fresh (hourly, in the background)
-        focus = moment(segments, now, self.config.focus.main_horizon, self.config.focus).intensity
-        self.shutdown.check(now, active, in_session=self.session is not None, intensity=focus)
-        self.prompts.check_block(now, in_session=self.session is not None)
-        if not self.shutdown.done_today(now):  # the shutdown already asked what's on your mind
-            self.prompts.check_evening(now)
+        ctx = FlowContext(now, segments, latest, self.state(now), active=active, in_session=self.session is not None,
+                          away_since=latest.start if latest is not None and latest.away else None)
+        ctx.values = Values(self.signals, ctx)
+        for flow in self.flows:
+            flow.tick(ctx)
 
     # --- focus sessions --------------------------------------------------------
 
@@ -551,25 +550,17 @@ class Aiwa:
         if response == "stop":
             self.stop_session(datetime.now(timezone.utc))
 
-    def signal_values(self, segments: list[Segment], latest: Segment | None, now: datetime) -> Values:
-        """All signals (aiwa/signals) for this moment, evaluated lazily by the rules that read them."""
-        since = (now - self.last_suggested).total_seconds() / 60 if self.last_suggested else 10_000
-        state = {
+    def state(self, now: datetime) -> dict:
+        """The app's own values, for signals and flows."""
+        return {
             "in_session": self.session is not None,
             "shutdown_done": self.shutdown.done_today(now),
             "popup_open": self.popup.isVisible(),
-            "minutes_since_suggested": since,
+            "minutes_since_suggested": self.suggest_flow.minutes_since_suggested(now),
         }
-        return Values(self.signals, Context(now, segments, latest, state))
 
-    def check_suggest_session(self, segments: list[Segment], latest: Segment | None, now: datetime) -> None:
-        """Outside a session, focus is building up → "start a session?" (a pipeline)."""
-        if not self.suggest_cadence.due(now) or not self.suggest_pipeline.decide(self.signal_values(segments, latest, now)):
-            return
-        self.last_suggested = now
-        self.popup.ask("You're getting into it. Start a focus session to protect this?",
-                       lambda a: self.tasks.request_session(self.start_session) if a == "start" else None,
-                       [("Start session", "start"), ("Not now", "no")])
+    def shallow_today(self, now: datetime):
+        return shallow_share(self.scores.today(now).minutes_by_activity)
 
     def update_scoreboard(self, now: datetime) -> None:
         try:
@@ -591,20 +582,6 @@ class Aiwa:
             + sleep_lines(*self.bedtime.last_night(now))
         )
         self.tray.set_scoreboard(lines, today.goal_progress)
-        self.check_budget(now, shallow)
-
-    def check_budget(self, now: datetime, today) -> None:
-        """The shallow-work budget: sometimes mention it, more likely the further over (core/budget.py)."""
-        day = self.rhythm.today(now)
-        if (self.session is not None or self.popup.isVisible() or not workday(day, self.config.shutdown)
-                or self.shutdown.done_today(now) or not self.budget.should_prompt(now, today)):
-            return
-        self.popup.ask(
-            f"Shallow work is at {today.share:.0%} of your time at the computer today (your limit: "
-            f"{self.config.shallow.limit:.0%}). Batch the rest for later and get back to deep work?",
-            lambda a: self.tasks.request_session(self.start_session) if a == "session" else None,
-            [("Start a focus session", "session"), ("Not now", "no")],
-        )
 
     def consistency(self, now: datetime):
         params = ConsistencyParams()
@@ -619,17 +596,13 @@ class Aiwa:
         except OSError:
             return  # ActivityWatch not reachable; tick() reports it in the tray
         question = self.classifier.observe(current, now)
-        category = self.categorizer.categorize(current) if current is not None and not current.away else None
-        in_session = self.session is not None
-        # after the workday is shut down, no more work questions
-        self.capture.step(now, current, category, in_session=in_session or self.shutdown.done_today(now))
-        self.experiments.step(now, current)
-        kind = self.categorizer.kind(current) if current is not None and not current.away else None
-        if self.hub.step(now, current, kind, in_session) and not self.popup.isVisible():
-            self.popup.ask(f"{kinds.label(kind)} can wait until the session is over (hub and spoke: "
-                           "collaboration outside deep work).", self.on_session_answer,
-                           [("Back to work", "ok"), ("Stop session", "stop")])
-        self.shutdown.step(now, in_session)
+        present = current is not None and not current.away
+        ctx = FlowContext(now, state=self.state(now), latest=current, current=current, active=present,
+                          in_session=self.session is not None,
+                          category=self.categorizer.categorize(current) if present else None,
+                          kind=self.categorizer.kind(current) if present else None)
+        for flow in self.flows:
+            flow.poll(ctx)
         if question and not self.popup.isVisible():
             self.ask(question)
         elif self.sampling and not self.popup.isVisible():

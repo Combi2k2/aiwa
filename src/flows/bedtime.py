@@ -9,13 +9,14 @@ from __future__ import annotations
 from datetime import datetime, time, timezone
 from typing import Callable
 
+from aiwa.flows.base import Flow, FlowContext
 from aiwa.core.bedtime import Action, BedtimeParams, WindDown
 from aiwa.core.store import Store
 from aiwa.ui.popup import Popup
 from aiwa.ui.sound import Alarm
 
 
-class BedtimePrompts:
+class BedtimeFlow(Flow):
     def __init__(self, store: Store, params: BedtimeParams, day_starts: time, popup: Popup, alarm: Alarm,
                  lock_screen: Callable[[], None], today: Callable[[datetime], object]):
         self.store = store
@@ -68,3 +69,9 @@ class BedtimePrompts:
         yesterday = active(self.store.minutes(start - timedelta(days=1), start))
         today = active(self.store.minutes(start, end))
         return (yesterday[-1] + timedelta(minutes=1) if yesterday else None, today[0] if today else None)
+
+    name = "bedtime"
+
+    def tick(self, ctx: FlowContext) -> None:
+        self.step(ctx.now, ctx.active)
+

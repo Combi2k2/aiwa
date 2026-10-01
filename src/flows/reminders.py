@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 
+from aiwa.flows.base import Flow, FlowContext
 from aiwa.core.reminders import ReminderParams, RoutineReminders, Slot, routine_slots
 from aiwa.core.routines import ACTIVITY_LABEL
 from aiwa.metrics.day import day_bounds
@@ -13,7 +14,7 @@ from aiwa.core.store import Store
 from aiwa.ui.popup import Popup
 
 
-class ReminderPrompts:
+class RemindersFlow(Flow):
     def __init__(self, store: Store, popup: Popup, day_starts: time, params: ReminderParams = ReminderParams()):
         self.store = store
         self.popup = popup
@@ -45,3 +46,9 @@ class ReminderPrompts:
             lambda a: self.reminders.settle(slot, now, self.day_starts) if a in ("going", "skip") else None,
             [("Going now", "going"), ("Later", "later"), ("Skip today", "skip")],
         )
+
+    name = "reminders"
+
+    def tick(self, ctx: FlowContext) -> None:
+        self.step(ctx.now, ctx.active, in_session=ctx.in_session)
+

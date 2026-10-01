@@ -6,13 +6,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Callable
 
+from aiwa.flows.base import Flow
 from aiwa.core.backlog import Group, minutes_text
 from aiwa.core.craftsman import SiteWeek
 from aiwa.core.store import Store
 from aiwa.ui.popup import Popup
 
 
-class CraftsmanPrompts:
+class CraftsmanFlow(Flow):
     def __init__(self, store: Store, popup: Popup, start_test: Callable[[str], None]):
         self.store = store
         self.popup = popup
@@ -37,6 +38,8 @@ class CraftsmanPrompts:
             self.popup.ask(f"Then it costs more than it gives. Try 30 days without {site.key}?",
                            lambda a: self.start_test(site.key) if a == "yes" else None,
                            [("Start the 30-day test", "yes"), ("Not now", "no")])
+
+    name = "craftsman"
 
 
 def verdict_lines(sites: dict[str, SiteWeek], verdicts: dict[str, tuple[str, int | None, float]],

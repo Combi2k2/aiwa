@@ -5,12 +5,13 @@ from __future__ import annotations
 
 from typing import Callable
 
+from aiwa.flows.base import Flow
 from aiwa.core.backlog import Task
 from aiwa.core.sprint import SprintParams
 from aiwa.ui.popup import Popup
 
 
-class SprintPrompts:
+class SprintFlow(Flow):
     def __init__(self, popup: Popup, start_sprint: Callable[[Task | None, str, int], None],
                  next_task: Callable[[], Task | None], new_task: Callable[[], None],
                  params: SprintParams = SprintParams()):
@@ -31,3 +32,6 @@ class SprintPrompts:
     def times_up(self, title: str, on_answer: Callable[[str], None]) -> None:
         self.popup.ask(f"Time's up: “{title}”. Done?", on_answer,
                        [("Done", "done"), (f"{self.params.extension} more minutes", "more"), ("Stop", "stop")])
+
+    name = "sprint"
+

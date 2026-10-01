@@ -15,18 +15,19 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from typing import Callable
 
+from aiwa.flows.base import Flow, FlowContext
 from aiwa.core.offtime import OffTimeParams, near, off_time, often_missed
 from aiwa.metrics.day import day_bounds
 from aiwa.rules.base import Cadence
 from aiwa.rules.shutdown import ShiftContext, shift_ending
 from aiwa.core.shutdown import ShutdownParams, workday
 from aiwa.core.store import Store
-from aiwa.tasks_controller import TasksController
+from aiwa.flows.tasks import TasksFlow
 from aiwa.ui.popup import Popup
 
 
-class ShutdownPrompts:
-    def __init__(self, store: Store, popup: Popup, tasks: TasksController, params: ShutdownParams,
+class ShutdownFlow(Flow):
+    def __init__(self, store: Store, popup: Popup, tasks: TasksFlow, params: ShutdownParams,
                  day_starts: time, wrap_up: Callable[[datetime], str], alarm,
                  weekly_review: Callable[[datetime], str | None] = lambda now: None,
                  save_review: Callable[[datetime, str | None], None] = lambda now, answer: None,
@@ -222,3 +223,12 @@ class ShutdownPrompts:
 
     def _complete(self, now: datetime) -> None:
         self.store.set_state(self._key(now), "done")
+
+    name = "shutdown"
+
+    def tick(self, ctx: FlowContext) -> None:
+        self.check(ctx.now, ctx.active, ctx.in_session, intensity=ctx.values["focus_5m"] if ctx.values else None)
+
+    def poll(self, ctx: FlowContext) -> None:
+        self.step(ctx.now, ctx.in_session)
+

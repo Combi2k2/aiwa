@@ -9,13 +9,14 @@ from __future__ import annotations
 from datetime import date, datetime, time, timezone
 from typing import Callable
 
+from aiwa.flows.base import Flow, FlowContext
 from aiwa.core.rhythm import Rhythm
 from aiwa.core.schedule import Block, BlockReminders, RhythmParams
 from aiwa.core.store import Store
 from aiwa.ui.popup import Popup
 
 
-class RhythmPrompts:
+class RhythmFlow(Flow):
     def __init__(
         self,
         store: Store,
@@ -84,3 +85,11 @@ class RhythmPrompts:
         else:
             self.store.log_block(block.day, "skipped", now)
             self.reminders.skip()
+
+    name = "rhythm"
+
+    def tick(self, ctx: FlowContext) -> None:
+        self.check_block(ctx.now, in_session=ctx.in_session)
+        if not ctx.state.get("shutdown_done"):  # the shutdown already asked what's on your mind
+            self.check_evening(ctx.now)
+

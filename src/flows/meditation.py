@@ -10,13 +10,14 @@ import random
 from datetime import datetime, timezone
 from typing import Callable
 
+from aiwa.flows.base import Flow
 from aiwa.core.backlog import Task
 from aiwa.core.meditation import MeditationParams, should_suggest, walk_task
 from aiwa.core.store import Store
 from aiwa.ui.popup import Popup
 
 
-class MeditationPrompts:
+class MeditationFlow(Flow):
     def __init__(self, store: Store, popup: Popup, start_walk: Callable[[Task], None],
                  current_task: Callable[[], Task | None], params: MeditationParams = MeditationParams(),
                  rng: random.Random | None = None):
@@ -65,3 +66,6 @@ class MeditationPrompts:
     def _outcome(self, walk: Task, text: str | None) -> None:
         if text:
             self.store.add_note(f"Thinking walk, “{walk.title}”: {text}", None, datetime.now(timezone.utc))
+
+    name = "thinking walk"
+

@@ -7,7 +7,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Callable
 
-from aiwa.core.morning import Action, MorningFlow
+from aiwa.flows.base import Flow, FlowContext
+from aiwa.core.morning import Action, MorningState
 from aiwa.core.store import Store
 from aiwa.ui.popup import Popup
 from aiwa.ui.sound import Alarm
@@ -17,7 +18,7 @@ ROUTINE_OPTIONS = [("15 min", "15"), ("30 min", "30"), ("45 min", "45"), ("60 mi
                    ("Start now", "now"), ("Heading out today", "out")]
 
 
-class MorningPrompts:
+class MorningFlow(Flow):
     def __init__(
         self,
         store: Store,
@@ -36,12 +37,12 @@ class MorningPrompts:
         self.todays_work = todays_work
         self.request_session = request_session
         self.day = None
-        self.flow = MorningFlow()
+        self.flow = MorningState()
 
     def step(self, now: datetime, active: bool, in_session: bool) -> None:
         day = self.today(now)
         if day != self.day:  # a new day: a fresh morning, unless it was already handled
-            self.day, self.flow = day, MorningFlow()
+            self.day, self.flow = day, MorningState()
             first = self.first_activity(now)
             if self.store.get_state(f"morning:{day}") or (first and now - first > LATE):
                 self.flow.finish()
@@ -95,3 +96,9 @@ class MorningPrompts:
 
     def _mark_done(self) -> None:
         self.store.set_state(f"morning:{self.day}", datetime.now(timezone.utc).isoformat())
+
+    name = "morning"
+
+    def tick(self, ctx: FlowContext) -> None:
+        self.step(ctx.now, ctx.active, in_session=ctx.in_session)
+
