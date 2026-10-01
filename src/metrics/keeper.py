@@ -7,8 +7,8 @@ from typing import Callable
 
 from aiwa.core.events import Segment
 from aiwa.core.focus import FocusParams
-from aiwa.core.scoreboard.day import DayScore, day_bounds, summarize_day
-from aiwa.core.scoreboard.ledger import MINUTE, score_minutes
+from aiwa.metrics.day import DayScore, day_bounds, summarize_day
+from aiwa.metrics.ledger import MINUTE, score_minutes
 from aiwa.core.store import Store
 
 LoadSegments = Callable[[datetime, datetime], list[Segment]]  # categorized segments for a time range

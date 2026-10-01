@@ -1,6 +1,6 @@
 from datetime import date, datetime, time, timedelta
 
-from aiwa.core.consistency import consistency
+from aiwa.metrics.consistency import consistency
 
 TODAY = date(2026, 9, 30)
 DAY_STARTS = time(4)

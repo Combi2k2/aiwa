@@ -21,13 +21,13 @@ from aiwa.core.collector import Collector
 from aiwa.core.events import Category, Finding, Level, Segment
 from aiwa.core.focus import moment
 from aiwa.core.sampling import SamplingSchedule
-from aiwa.core.scoreboard import ScoreKeeper
-from aiwa.core.scoreboard.day import day_bounds, summarize_day
+from aiwa.metrics.keeper import ScoreKeeper
+from aiwa.metrics.day import day_bounds, summarize_day
 from aiwa.core.rules.focus import LowAndNotRising
 from aiwa.core.session import Action, FocusSession
 from aiwa.core.openjev import Openjev, assess_task, classify_activity, is_todo, still_there, suggest_group, suggest_kind
 from aiwa.core import kinds
-from aiwa.core.quota import QuotaKeeper
+from aiwa.metrics.quota import QuotaKeeper
 from aiwa.core.policy import NudgePolicy
 from aiwa.core.rules import default_rules
 from aiwa.core.rhythm import Rhythm
@@ -51,10 +51,10 @@ from aiwa.core.grand import grand_session
 from aiwa.shutdown_prompts import ShutdownPrompts
 from aiwa.core.backlog import minutes_text
 from aiwa.core.budget import ShallowBudget, shallow_share
-from aiwa.core.consistency import ConsistencyParams, consistency
+from aiwa.metrics.consistency import ConsistencyParams, consistency
 from aiwa.core.offline import OfflineWork
 from aiwa.core.meditation import is_walk
-from aiwa.core.history import deep_minutes
+from aiwa.metrics.history import deep_minutes
 from aiwa.core.shutdown import workday
 from aiwa.core.weekly import WeekFacts, review_due, review_text, week_start
 from aiwa.morning_prompts import MorningPrompts

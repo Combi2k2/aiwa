@@ -8,7 +8,7 @@ from datetime import datetime, time, timedelta
 
 from aiwa.core.reminders import ReminderParams, RoutineReminders, Slot, routine_slots
 from aiwa.core.routines import ACTIVITY_LABEL
-from aiwa.core.scoreboard.day import day_bounds
+from aiwa.metrics.day import day_bounds
 from aiwa.core.store import Store
 from aiwa.ui.popup import Popup
 

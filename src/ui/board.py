@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from aiwa.core.history import SessionSummary
+from aiwa.metrics.history import SessionSummary
 from aiwa.core.schedule import Block
-from aiwa.core.scoreboard import DayScore
+from aiwa.metrics.day import DayScore
 
 ACTIVITY_ORDER = ["deep", "offline", "shallow", "distraction", "neutral", "unclassified", "untracked", "away"]
 

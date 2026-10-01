@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 
-from aiwa.core.history import DayOutcome, SessionSummary, block_window, chain_length, deep_minutes
+from aiwa.metrics.history import DayOutcome, SessionSummary, block_window, chain_length, deep_minutes
 from aiwa.core.schedule import Block, RhythmParams, block_for
-from aiwa.core.scoreboard.day import day_bounds
+from aiwa.metrics.day import day_bounds
 from aiwa.core.store import Store
 
 CHAIN_LOOKBACK_DAYS = 120

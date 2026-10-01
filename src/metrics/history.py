@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
-from aiwa.core.scoreboard.ledger import MinuteEntry
+from aiwa.metrics.ledger import MinuteEntry
 
 
 @dataclass(frozen=True)

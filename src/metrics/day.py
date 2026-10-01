@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
-from aiwa.core.scoreboard.ledger import MINUTE, MinuteEntry
+from aiwa.metrics.ledger import MINUTE, MinuteEntry
 
 
 @dataclass(frozen=True)

@@ -4,7 +4,9 @@ import pytest
 
 from aiwa.core.events import Category, Segment
 from aiwa.core.focus import FocusParams
-from aiwa.core.scoreboard import MinuteEntry, ScoreKeeper, day_bounds, score_minutes, summarize_day
+from aiwa.metrics.day import day_bounds, summarize_day
+from aiwa.metrics.keeper import ScoreKeeper
+from aiwa.metrics.ledger import MinuteEntry, score_minutes
 from aiwa.core.store import Store
 from aiwa.ui.board import duration, scoreboard_lines
 

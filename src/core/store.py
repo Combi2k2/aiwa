@@ -349,7 +349,7 @@ class Store:
         self._db.commit()
 
     def minutes(self, start: datetime, end: datetime) -> list:
-        from aiwa.core.scoreboard.ledger import MinuteEntry
+        from aiwa.metrics.ledger import MinuteEntry
 
         rows = self._db.execute(
             "SELECT minute, intensity, activity FROM focus_minutes WHERE minute >= ? AND minute < ? ORDER BY minute",
@@ -571,7 +571,7 @@ class Store:
 
     def mark_present(self, start: datetime, end: datetime, activity: str) -> int:
         """Record [start, end) as time at the computer (the user said they weren't away), not as away."""
-        from aiwa.core.scoreboard.ledger import MINUTE, MinuteEntry, minute_floor
+        from aiwa.metrics.ledger import MINUTE, MinuteEntry, minute_floor
 
         entries, minute = [], minute_floor(start)
         while minute + MINUTE <= end:
@@ -582,7 +582,7 @@ class Store:
 
     def mark_offline_work(self, start: datetime, end: datetime) -> int:
         """Record [start, end) as deep work done offline (it shows as away otherwise). Returns minutes."""
-        from aiwa.core.scoreboard.ledger import MINUTE, MinuteEntry, minute_floor
+        from aiwa.metrics.ledger import MINUTE, MinuteEntry, minute_floor
 
         entries, minute = [], minute_floor(start)
         while minute + MINUTE <= end:

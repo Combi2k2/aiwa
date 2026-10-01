@@ -1,9 +1,9 @@
 from datetime import date, datetime, time, timedelta, timezone
 
-from aiwa.core.history import DayOutcome, chain_length, deep_minutes
+from aiwa.metrics.history import DayOutcome, chain_length, deep_minutes
 from aiwa.core.rhythm import Rhythm
 from aiwa.core.schedule import BlockReminders, Plan, RhythmParams, block_for
-from aiwa.core.scoreboard.ledger import MinuteEntry
+from aiwa.metrics.ledger import MinuteEntry
 from aiwa.core.store import Store
 from aiwa.ui.board import rhythm_lines
 

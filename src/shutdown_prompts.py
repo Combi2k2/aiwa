@@ -16,7 +16,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Callable
 
 from aiwa.core.offtime import OffTimeParams, near, off_time, often_missed
-from aiwa.core.scoreboard.day import day_bounds
+from aiwa.metrics.day import day_bounds
 from aiwa.core.rules.base import Cadence
 from aiwa.core.rules.shutdown import ShiftContext, shift_ending
 from aiwa.core.shutdown import ShutdownParams, workday

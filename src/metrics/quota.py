@@ -51,7 +51,7 @@ class QuotaKeeper:
 
     def base(self, now) -> int:
         """The base for today; recalculated once per day from the days before."""
-        from aiwa.core.scoreboard.day import day_bounds
+        from aiwa.metrics.day import day_bounds
 
         today, _, _ = day_bounds(now, self.day_starts)
         base = int(self.store.get_state("quota_base") or self.params.start)
@@ -67,7 +67,7 @@ class QuotaKeeper:
     def _deep_by_day(self, today: date) -> dict[date, int]:
         from datetime import datetime
 
-        from aiwa.core.scoreboard.day import summarize_day
+        from aiwa.metrics.day import summarize_day
 
         result = {}
         for back in range(1, self.params.streak_days + 1):

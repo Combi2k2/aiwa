@@ -6,8 +6,9 @@ from datetime import datetime, timedelta, timezone
 
 from aiwa import config as config_mod
 from aiwa.commands.data import load_segments
-from aiwa.core.quota import QuotaKeeper
-from aiwa.core.scoreboard import ScoreKeeper, day_bounds, summarize_day
+from aiwa.metrics.quota import QuotaKeeper
+from aiwa.metrics.day import day_bounds, summarize_day
+from aiwa.metrics.keeper import ScoreKeeper
 from aiwa.core.store import Store
 from aiwa.ui.board import duration, scoreboard_lines
 

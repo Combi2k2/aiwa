@@ -61,7 +61,7 @@ class BedtimePrompts:
         minute ledger, which is filled from ActivityWatch's history even when aiwa wasn't running."""
         from datetime import timedelta
 
-        from aiwa.core.scoreboard.day import day_bounds
+        from aiwa.metrics.day import day_bounds
 
         _, start, end = day_bounds(now, self.day_starts)
         active = lambda entries: [e.minute for e in entries if e.activity not in (None, "away")]

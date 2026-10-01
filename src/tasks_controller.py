@@ -12,7 +12,7 @@ from typing import Callable
 
 from aiwa.core import backlog
 from aiwa.core.backlog import Assessment, Group, Task
-from aiwa.core.scoreboard.day import day_bounds
+from aiwa.metrics.day import day_bounds
 from aiwa.core.store import Store
 from aiwa.ui.breakdown import BreakdownDialog
 from aiwa.ui.popup import Popup

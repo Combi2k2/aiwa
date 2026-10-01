@@ -6,7 +6,7 @@ from aiwa.core.backlog import (
     Assessment, Group, Task, breakdown_reason, due_text, estimate_mismatch, next_task, pick_group, urgency, workable,
 )
 from aiwa.core.openjev import Openjev, assess_task, suggest_group
-from aiwa.core.quota import QuotaParams, next_base, today_quota
+from aiwa.metrics.quota import QuotaParams, next_base, today_quota
 from aiwa.core.store import Store
 
 NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
