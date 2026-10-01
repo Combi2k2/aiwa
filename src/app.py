@@ -23,8 +23,6 @@ from aiwa.signals.focus import moment
 from aiwa.core.sampling import SamplingSchedule
 from aiwa.metrics.keeper import ScoreKeeper
 from aiwa.metrics.day import day_bounds, summarize_day
-from aiwa.rules.focus import LowAndNotRising
-from aiwa.core.session import Action, FocusSession
 from aiwa.core.openjev import Openjev, assess_task, classify_activity, is_todo, still_there, suggest_group, suggest_kind
 from aiwa.core import kinds
 from aiwa.metrics.quota import QuotaKeeper
@@ -39,9 +37,9 @@ from aiwa.flows.reminders import RemindersFlow
 from aiwa.flows.experiment import ExperimentFlow, experiment_lines
 from aiwa.flows.grand import GrandFlow
 from aiwa.flows.sprint import SprintFlow
-from aiwa.core.sprint import Sprint
 from aiwa.signals.base import Values
 from aiwa.flows.base import Flow, FlowContext
+from aiwa.flows.session import NO_DATA_AFTER, SessionFlow
 from aiwa.flows.budget import BudgetFlow
 from aiwa.flows.hub import HubFlow
 from aiwa.flows.suggest import SuggestSessionFlow
@@ -50,14 +48,10 @@ from aiwa.core.craftsman import WorthAsking, pick, site_weeks
 from aiwa.core.association import AssociationParams, contributions, pair_minutes
 from aiwa.ui.background import Background
 from aiwa.flows.craftsman import CraftsmanFlow, verdict_lines
-from aiwa.core.grand import grand_session
 from aiwa.flows.shutdown import ShutdownFlow
 from aiwa.core.backlog import minutes_text
 from aiwa.core.budget import shallow_share
 from aiwa.metrics.consistency import ConsistencyParams, consistency
-from aiwa.core.offline import OfflineWork
-from aiwa.core.meditation import is_walk
-from aiwa.metrics.history import deep_minutes
 from aiwa.core.shutdown import workday
 from aiwa.core.weekly import WeekFacts, review_due, review_text, week_start
 from aiwa.flows.morning import MorningFlow
@@ -70,8 +64,6 @@ from aiwa.ui.popup import Popup
 from aiwa.ui.sound import Alarm
 from aiwa.ui.tray import Tray
 
-SESSION_FOCUS_WINDOW = timedelta(minutes=2)  # short, so a dip in focus is noticed quickly
-NO_DATA_AFTER = timedelta(minutes=2)  # no activity recorded for this long = away (asleep, or ActivityWatch off)
 FAST_POLL_MS = 2_000  # how often to look at what's in focus right now (cheap: latest events only)
 RATING_OPTIONS = [(c.value.capitalize(), c.value) for c in Category] + [("Ask later", "later")]
 FOCUS_OPTIONS = [("1 scattered", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5 deeply focused", "5"), ("Skip", "skip")]
@@ -116,19 +108,10 @@ class Aiwa:
             day_starts=config.day_starts,
         )
         self.quota = QuotaKeeper(self.store, config.quota, config.day_starts, config.focus.deep_threshold)
-        self.low_focus = LowAndNotRising(config.low_focus_below)
-        self.alarm = Alarm(config.alarm_sound, config.alarm_volume)
-        self.session: FocusSession | None = None
-        self.session_id: int | None = None
-        self.session_checked: datetime | None = None  # last time the session was stepped
-        self.offline = OfflineWork()  # away time on an offline task
-        running = self.store.running_session()  # resume a session that was running when aiwa stopped
-        if running:
-            self.session_id, started = running
-            self.session = FocusSession(started, config.session)
+        self.session_flow = SessionFlow(self)  # before the tray: its menu starts and stops sessions
         self.rhythm = Rhythm(self.store, config.rhythm, config.day_starts, config.focus.deep_threshold)
         self.tray = Tray(
-            on_session=self.toggle_session,
+            on_session=self.session_flow.toggle_session,
             on_tasks=lambda: self.tasks.open_board(),
             on_new_task=lambda: self.tasks.new_task(),
             on_task_done=lambda: self.tasks.task_done(),
@@ -159,7 +142,7 @@ class Aiwa:
             self.store, self.popup, alarm=Alarm(config.alarm_sound, config.alarm_volume), today=self.rhythm.today,
             first_activity=lambda now: self.bedtime.last_night(now)[1],
             todays_work=self.todays_work,
-            request_session=lambda: self.tasks.request_session(self.start_session),
+            request_session=lambda: self.tasks.request_session(self.session_flow.start_session),
         )
         self.routines = RoutinesFlow(self.store, self.popup, config.bedtime.wind_down, config.day_starts,
                                        always_ask=config.routines_always_ask,
@@ -170,13 +153,11 @@ class Aiwa:
                                       (lambda note: is_todo(openjev, note)) if openjev else None)
         self.reminder_prompts = RemindersFlow(self.store, self.popup, config.day_starts)
         self.experiments = ExperimentFlow(self.store, self.popup, self.rhythm.today, self.distraction_candidates)
-        self.grand_prompts = GrandFlow(self.store, self.popup, self.start_grand,
+        self.grand_prompts = GrandFlow(self.store, self.popup, self.session_flow.start_grand,
                                           next_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
-        self.grand: str | None = None  # the grand gesture's one thing, while one runs
-        self.sprint_prompts = SprintFlow(self.popup, self.start_sprint,
+        self.sprint_prompts = SprintFlow(self.popup, self.session_flow.start_sprint,
                                             next_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1],
                                             new_task=lambda: self.tasks.new_task())
-        self.sprint: Sprint | None = None
         self.signals = default_signals(config.focus)
 
         self.craftsman = CraftsmanFlow(self.store, self.popup, start_test=lambda key: self.experiments.start_for(key))
@@ -184,7 +165,7 @@ class Aiwa:
         self._week_sites: tuple[datetime, dict] | None = None
         self._computing = False
         self.background = Background()
-        self.meditation = MeditationFlow(self.store, self.popup, self.start_walk,
+        self.meditation = MeditationFlow(self.store, self.popup, self.session_flow.start_walk,
                                             current_task=lambda: self.tasks.next_task(datetime.now(timezone.utc))[1])
         self.shutdown = ShutdownFlow(self.store, self.popup, self.tasks, config.shutdown, config.day_starts,
                                         self.shutdown_wrap_up, alarm=Alarm(config.alarm_sound, config.alarm_volume),
@@ -192,17 +173,17 @@ class Aiwa:
                                         tools_check=self.tools_check)
         self.prompts = RhythmFlow(
             self.store, self.rhythm, config.rhythm, config.day_starts, self.popup,
-            request_session=lambda: self.tasks.request_session(self.start_session),
+            request_session=lambda: self.tasks.request_session(self.session_flow.start_session),
             ask_anything_new=self.tasks.ask_anything_new,
         )
-        request_session = lambda: self.tasks.request_session(self.start_session)
+        request_session = lambda: self.tasks.request_session(self.session_flow.start_session)
         self.budget_flow = BudgetFlow(self.popup, config.shallow, config.shutdown, self.rhythm.today,
                                       self.shallow_today, request_session)
         self.suggest_flow = SuggestSessionFlow(self.popup, request_session)
-        self.hub_flow = HubFlow(self.popup, self.on_session_answer)
+        self.hub_flow = HubFlow(self.popup, self.session_flow.on_session_answer)
         # the order flows run in, each tick / poll (earlier ones get the popup first)
         self.flows: list[Flow] = [
-            self.bedtime, self.morning, self.routines, self.reminder_prompts, self.experiments, self.budget_flow,
+            self.session_flow, self.bedtime, self.morning, self.routines, self.reminder_prompts, self.experiments, self.budget_flow,
             self.capture, self.suggest_flow, self.shutdown, self.prompts, self.hub_flow,
         ]
         self.timer = QTimer()
@@ -242,12 +223,11 @@ class Aiwa:
             if self.policy.allow(finding, now, away=away):
                 self.policy.record(finding, now)
                 self.show(finding, self.store.log_nudge(finding, now))
-        self.step_session(segments, now)
         latest = max(segments, key=lambda s: s.end) if segments else None
         active = latest is not None and not latest.away and now - latest.end <= NO_DATA_AFTER
         self.update_scoreboard(now)
         self.week_sites(now)  # keeps the craftsman data fresh (hourly, in the background)
-        ctx = FlowContext(now, segments, latest, self.state(now), active=active, in_session=self.session is not None,
+        ctx = FlowContext(now, segments, latest, self.state(now), active=active, in_session=self.session_flow.session is not None,
                           away_since=latest.start if latest is not None and latest.away else None)
         ctx.values = Values(self.signals, ctx)
         for flow in self.flows:
@@ -363,30 +343,6 @@ class Aiwa:
     def save_weekly_review(self, now: datetime, answer: str | None) -> None:
         self.store.add_weekly_review(week_start(self.rhythm.today(now)), now, answer)
 
-    def toggle_session(self) -> None:
-        if self.session:
-            self.stop_session(datetime.now(timezone.utc))
-        else:
-            self.tasks.request_session(self.start_session)  # offers to add a task if the list is empty
-
-    def start_session(self, offer_task: bool = True, params=None) -> None:
-        """`params`: session rules other than the usual (a grand gesture)."""
-        if self.session:
-            return
-        now = datetime.now(timezone.utc)
-        self.session_id = self.store.start_session(now)
-        self.session = FocusSession(now, params or self.config.session)
-        self.session_checked = now
-        self.tray.set_session(0)
-        if offer_task:
-            self.tasks.start_session()  # pick a goal group, hand over its first task
-
-    def start_grand(self, what: str, hours: int) -> None:
-        """A grand gesture: one long session on one thing, relaxed rules (core/grand.py)."""
-        self.stop_session(datetime.now(timezone.utc), quiet=True)
-        self.start_session(params=grand_session(self.config.session, hours))
-        self.grand = what
-
     def usage(self, category: Category, since: datetime, now: datetime) -> list[tuple[str, int]]:
         """Sites/apps of a category with their minutes since `since`, most first."""
         try:
@@ -404,156 +360,10 @@ class Aiwa:
         now = datetime.now(timezone.utc)
         return self.usage(Category.DISTRACTION, now - timedelta(days=7), now)
 
-    def start_sprint(self, task, title: str, minutes: int) -> None:
-        """A sprint: a session on one task with a tight deadline, counting down (core/sprint.py)."""
-        now = datetime.now(timezone.utc)
-        self.stop_session(now, quiet=True)
-        self.start_session(offer_task=False)
-        if task is not None:
-            self.tasks._set_current(task)
-        self.sprint = Sprint(title, task.id if task else None, now + timedelta(minutes=minutes))
-        self.tray.set_session(0, f"{minutes} min left")
-
-    def step_sprint(self, now: datetime) -> bool:
-        """Countdown in the tray; at the deadline, "time's up" (rings). True while it's asking."""
-        if self.sprint is None:
-            return False
-        left = int(self.sprint.left(now).total_seconds() // 60) + (1 if self.sprint.left(now).seconds % 60 else 0)
-        self.tray.set_session(int(self.session.elapsed(now).total_seconds() // 60),
-                              f"{left} min left · {self.sprint.title}")
-        if not self.sprint.due(now):
-            return self.sprint.asked
-        self.sprint.asked = True
-        self.alarm.start()
-        self.sprint_prompts.times_up(self.sprint.title, self.on_sprint_answer)
-        return True
-
-    def on_sprint_answer(self, answer: str) -> None:
-        self.alarm.stop()
-        now = datetime.now(timezone.utc)
-        if answer == "more" and self.sprint is not None:
-            self.sprint.extend(now, self.sprint_prompts.params.extension)
-            return
-        if answer == "done" and self.sprint is not None and self.sprint.task_id is not None:
-            self.store.set_task_status(self.sprint.task_id, "done", now)
-            self.tasks.refresh()
-        self.stop_session(now)
-
-    def start_walk(self, walk) -> None:
-        """A thinking walk: a session on the walk as an offline task (core/meditation.py)."""
-        self.stop_session(datetime.now(timezone.utc), quiet=True)
-        self.start_session(offer_task=False)
-        self.tasks.current_task = walk  # not in the backlog; being away is the work
-
-    def stop_session(self, now: datetime, ended_by: str = "user", quiet: bool = False) -> None:
-        """`quiet`: no follow-up prompts (wrap-up reminder, thinking walk)."""
-        if not self.session:
-            return
-        counts = {action.value: n for action, n in self.session.counts.items()}
-        started, walking = self.session.started_at, is_walk(self.tasks.current_task)
-        grand, self.grand = self.grand, None
-        self.sprint = None
-        self.store.end_session(self.session_id, now, counts, ended_by)
-        self.session = self.session_id = None
-        self.offline.reset()
-        self.tasks.end_session()
-        self.alarm.stop()
-        self.tray.set_session(None)
-        if self.popup.isVisible():
-            self.popup.hide()
-        if grand is not None and not quiet:  # the grand gesture is over: what got done?
-            self.grand_prompts.finished(grand, deep_minutes(self.store.minutes(started, now), started, now,
-                                                            self.config.focus.deep_threshold))
-            return
-        if ended_by == "user" and not quiet:
-            self.shutdown.session_ended(now)  # near the usual off time: wrap up the day?
-            if not walking:  # after a good session, sometimes: a thinking walk?
-                deep = deep_minutes(self.store.minutes(started, now), started, now, self.config.focus.deep_threshold)
-                self.meditation.after_session(deep)
-
-    def step_session(self, segments: list[Segment], now: datetime) -> None:
-        if not self.session:
-            return
-        last_check, self.session_checked = self.session_checked, now
-        task = self.tasks.current_task
-        slept = last_check and now - last_check >= self.session.params.away_end_after
-        if slept and not (task and task.offline):
-            # aiwa didn't run for a while (the Mac slept): the session ended back then
-            self.stop_session(last_check, ended_by="away")
-            return
-        minutes = int(self.session.elapsed(now).total_seconds() // 60)
-        self.tray.set_session(minutes)
-        if self.step_sprint(now):
-            return  # time's up is showing: no other session prompts meanwhile
-        latest = max(segments, key=lambda s: s.end) if segments else None
-        if latest is None or now - latest.end > NO_DATA_AFTER:
-            # no recent data: the Mac slept or ActivityWatch stopped; count it as away
-            away_since = max(latest.end if latest else self.session.started_at, self.session.started_at)
-        else:
-            away_since = latest.start if latest.away else None
-        if slept and away_since is None:
-            away_since = last_check  # the Mac slept during offline work and just woke up: the user is back now
-        offline, away_since = self.step_offline_work(task, away_since, now)
-        if offline:
-            return  # working offline, or just back from it: no focus checks this time
-        short = moment(segments, now, SESSION_FOCUS_WINDOW, self.config.focus)
-        low = self.low_focus(short.intensity, now)
-        if away_since is None and not low and self.alarm.ringing:
-            self.alarm.stop()  # the user is back, and focused
-        action = self.session.step(now, low, away_since)
-        if action is Action.NONE:
-            return
-        if action is Action.END:
-            self.stop_session(away_since, ended_by="away")  # the session ended when the user left
-            return
-        if action is Action.ALARM:
-            self.alarm.start()  # loops until the user is back or answers
-            away = int((now - away_since).total_seconds() // 60)
-            message = f"You've been away for {away} min, and your focus session is still running."
-            options = [("I'm back", "ok"), ("Stop session", "stop")]
-        elif action is Action.WRAP_UP:
-            message = f"{minutes} minutes of focus. Time to wrap up and take a real break."
-            options = [("Stop session", "stop"), ("Almost done", "ok")]
-        elif action is Action.ASK_DONE:
-            message = "Your focus has dropped. Is this session done?"
-            options = [("Yes, stop", "stop"), ("No, keep going", "ok")]
-        else:
-            if self.config.sound_on_low_focus:
-                self.alarm.start()  # rings until focus is back or the popup is answered
-            message = "Your focus is slipping. Come back to what you were working on?"
-            options = [("Back on it", "ok"), ("Stop session", "stop")]
-        # session messages take priority over any other open question
-        self.popup.ask(message, self.on_session_answer, options)
-
-    def step_offline_work(self, task, away_since: datetime | None, now: datetime) -> tuple[bool, datetime | None]:
-        """Away during an offline task is the work itself (core/offline.py); records it and asks when back."""
-        step = self.offline.step(task, away_since, now)
-        if step.offline and step.credit is None and self.alarm.ringing:
-            self.alarm.stop()
-        if step.credit:
-            worked = self.store.mark_offline_work(*step.credit)
-            if step.back:
-                self.routines.offline_work_done()  # no "what was that?" about it
-                if is_walk(task):
-                    self.stop_session(step.credit[1], ended_by="walk")  # the walk is over
-                    self.meditation.back(task, worked)
-                elif task:
-                    self.popup.ask(
-                        f"Welcome back: {minutes_text(worked)} of offline work on “{task.title}”. Is it done?",
-                        lambda a: self.tasks.task_done() if a == "done" else None,
-                        [("Done", "done"), ("Not yet", "no")],
-                    )
-        return step.offline, step.away_since
-
-    def on_session_answer(self, response: str) -> None:
-        self.alarm.stop()
-        if response == "stop":
-            self.stop_session(datetime.now(timezone.utc))
-
     def state(self, now: datetime) -> dict:
         """The app's own values, for signals and flows."""
         return {
-            "in_session": self.session is not None,
+            "in_session": self.session_flow.session is not None,
             "shutdown_done": self.shutdown.done_today(now),
             "popup_open": self.popup.isVisible(),
             "minutes_since_suggested": self.suggest_flow.minutes_since_suggested(now),
@@ -598,7 +408,7 @@ class Aiwa:
         question = self.classifier.observe(current, now)
         present = current is not None and not current.away
         ctx = FlowContext(now, state=self.state(now), latest=current, current=current, active=present,
-                          in_session=self.session is not None,
+                          in_session=self.session_flow.session is not None,
                           category=self.categorizer.categorize(current) if present else None,
                           kind=self.categorizer.kind(current) if present else None)
         for flow in self.flows:
