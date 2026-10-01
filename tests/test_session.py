@@ -99,7 +99,7 @@ def test_below_threshold():
 def test_low_focus_ignores_the_echo_of_a_distraction_while_focus_is_rising():
     from datetime import datetime, timedelta, timezone
 
-    from aiwa.core.rules.focus import LowAndNotRising
+    from aiwa.rules.focus import LowAndNotRising
 
     t0 = datetime(2026, 9, 30, 10, tzinfo=timezone.utc)
     low = LowAndNotRising(0.35)

@@ -140,9 +140,9 @@ src/
 
 ## Adding a rule
 
-Create `core/rules/<name>.py` with a class that has a `name` and a
+Create `rules/<name>.py` with a class that has a `name` and a
 `check(segments, now) -> Finding | None` method, then add it to
-`default_rules()` in `core/rules/__init__.py`.
+`default_rules()` in `rules/__init__.py`.
 
 ## Platform status
 

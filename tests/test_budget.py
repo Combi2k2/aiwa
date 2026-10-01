@@ -2,7 +2,7 @@ import random
 from datetime import datetime, timedelta, timezone
 
 from aiwa.core.budget import ShallowBudget, ShallowShare, shallow_share
-from aiwa.core.rules.budget import BudgetRule
+from aiwa.rules.budget import BudgetRule
 
 T0 = datetime(2026, 9, 30, 14, tzinfo=timezone.utc)
 

@@ -23,13 +23,13 @@ from aiwa.core.focus import moment
 from aiwa.core.sampling import SamplingSchedule
 from aiwa.metrics.keeper import ScoreKeeper
 from aiwa.metrics.day import day_bounds, summarize_day
-from aiwa.core.rules.focus import LowAndNotRising
+from aiwa.rules.focus import LowAndNotRising
 from aiwa.core.session import Action, FocusSession
 from aiwa.core.openjev import Openjev, assess_task, classify_activity, is_todo, still_there, suggest_group, suggest_kind
 from aiwa.core import kinds
 from aiwa.metrics.quota import QuotaKeeper
 from aiwa.core.policy import NudgePolicy
-from aiwa.core.rules import default_rules
+from aiwa.rules import default_rules
 from aiwa.core.rhythm import Rhythm
 from aiwa.core.store import Store
 from aiwa.bedtime_prompts import BedtimePrompts
@@ -41,8 +41,8 @@ from aiwa.grand_prompts import GrandPrompts
 from aiwa.sprint_prompts import SprintPrompts
 from aiwa.core.sprint import Sprint
 from aiwa.core.hub import HubWatch
-from aiwa.core.rules.base import Cadence
-from aiwa.core.rules.suggest_session import suggest_session
+from aiwa.rules.base import Cadence
+from aiwa.rules.suggest_session import suggest_session
 from aiwa.core.craftsman import WorthAsking, pick, site_weeks
 from aiwa.core.association import AssociationParams, contributions, pair_minutes
 from aiwa.ui.background import Background

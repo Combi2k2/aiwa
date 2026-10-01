@@ -19,7 +19,7 @@ import random
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
-from aiwa.core.rules.base import Cadence
+from aiwa.rules.base import Cadence
 
 DAY = 24 * 60
 
@@ -109,7 +109,7 @@ class RoutineReminders:
 
     def __init__(self, params: ReminderParams = ReminderParams(), rng: random.Random | None = None):
         self.params = params
-        from aiwa.core.rules.reminder import ReminderRule
+        from aiwa.rules.reminder import ReminderRule
 
         self.rule = ReminderRule(params, rng)
         self.cadence = Cadence(params.check_every)

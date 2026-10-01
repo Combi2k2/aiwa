@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from aiwa.core.rules.base import Rule
+from aiwa.rules.base import Rule
 
 
 class TimeOnIt(Rule[timedelta]):

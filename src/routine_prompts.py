@@ -15,7 +15,7 @@ from aiwa.core.backlog import minutes_text
 from aiwa.core.routines import ACTIVITY_LABEL, Absence, AbsenceTracker, confident_activity, likely_options, overnight
 from aiwa.core import kinds
 from aiwa.core.events import Segment
-from aiwa.core.rules.absence import StillThere
+from aiwa.rules.absence import StillThere
 from aiwa.core.store import Store
 from aiwa.ui.background import Background
 from aiwa.ui.popup import Popup

@@ -7,7 +7,7 @@ approves does the next level vote, and so on. The action happens when every
 level approves.
 
 Rules read **signals**: named quantities computed from the current state
-("focus_2m", "in_session", ...). `Signal` is the generic rule on one named signal
+("focus_2m", "in_session", ...). `SignalRule` is the generic rule on one named signal
 (threshold, softness, direction, range from core/rules/base.py), so a rule can be
 plain data; later these can come from the user's config.
 """
@@ -18,12 +18,12 @@ import random
 from dataclasses import dataclass, field
 from typing import Mapping
 
-from aiwa.core.rules.base import Rule, RuleParams
+from aiwa.rules.base import Rule, RuleParams
 
 Signals = Mapping[str, "float | bool | None"]
 
 
-class Signal(Rule[Signals]):
+class SignalRule(Rule[Signals]):
     """A rule on one named signal (booleans count as 0 / 1)."""
 
     def __init__(self, name: str, threshold: float, softness: float = 0.0, direction: int = 1,
@@ -41,12 +41,12 @@ class Signal(Rule[Signals]):
         return f"{self.name} {op} {self.params.threshold:g}{soft}"
 
 
-def is_true(name: str) -> Signal:
-    return Signal(name, threshold=1)
+def is_true(name: str) -> SignalRule:
+    return SignalRule(name, threshold=1)
 
 
-def is_false(name: str) -> Signal:
-    return Signal(name, threshold=0, direction=-1)
+def is_false(name: str) -> SignalRule:
+    return SignalRule(name, threshold=0, direction=-1)
 
 
 @dataclass

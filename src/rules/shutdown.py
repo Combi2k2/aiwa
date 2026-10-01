@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
-from aiwa.core.rules.base import AllOf, Rule, RuleParams
+from aiwa.rules.base import AllOf, Rule, RuleParams
 
 if TYPE_CHECKING:
     from aiwa.core.shutdown import ShutdownParams

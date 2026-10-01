@@ -119,7 +119,7 @@ def test_a_stale_away_period_after_coming_back_is_not_reported_again():
 
 
 def test_openjev_can_veto_the_question_when_sure_the_user_stayed():
-    from aiwa.core.rules.absence import StillThere
+    from aiwa.rules.absence import StillThere
 
     rule = StillThere(0.7)
     assert rule.decide(0.74) and rule.decide(0.7) and not rule.decide(0.6)

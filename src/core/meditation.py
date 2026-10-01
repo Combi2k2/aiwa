@@ -13,7 +13,7 @@ import random
 from dataclasses import dataclass
 
 from aiwa.core.backlog import Task
-from aiwa.core.rules.walk import SuggestWalk
+from aiwa.rules.walk import SuggestWalk
 
 WALK_TASK_ID = -1  # not in the backlog
 

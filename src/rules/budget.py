@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING
 
-from aiwa.core.rules.base import Rule, RuleParams
+from aiwa.rules.base import Rule, RuleParams
 
 if TYPE_CHECKING:
     from aiwa.core.budget import BudgetParams, ShallowShare

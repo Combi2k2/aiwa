@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, time
 from typing import TYPE_CHECKING
 
-from aiwa.core.rules.base import Rule, RuleParams
+from aiwa.rules.base import Rule, RuleParams
 
 if TYPE_CHECKING:
     from aiwa.core.reminders import ReminderParams, Slot

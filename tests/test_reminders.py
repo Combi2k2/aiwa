@@ -58,7 +58,7 @@ def test_reminders_are_sampled_every_15_minutes_and_settled_for_the_day():
 
 def test_reminder_chance_is_soft_around_half_the_days():
     from aiwa.core.reminders import ReminderParams
-    from aiwa.core.rules.reminder import ReminderRule, SlotNow
+    from aiwa.rules.reminder import ReminderRule, SlotNow
 
     lunch = routine_slots(history(), DAY_STARTS)[0]
     rule = ReminderRule(ReminderParams())

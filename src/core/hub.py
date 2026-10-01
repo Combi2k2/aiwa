@@ -8,8 +8,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from aiwa.core.events import Segment
-from aiwa.core.rules.base import RuleParams
-from aiwa.core.rules.capture import TimeOnIt
+from aiwa.rules.base import RuleParams
+from aiwa.rules.capture import TimeOnIt
 
 CONTACT_KINDS = {"email", "team_chat", "video_calls"}
 

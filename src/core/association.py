@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from aiwa.core.events import Segment
-from aiwa.core.rules.base import Rule, RuleParams
+from aiwa.rules.base import Rule, RuleParams
 
 OPEN = None  # no active task
 

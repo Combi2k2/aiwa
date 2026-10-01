@@ -17,8 +17,8 @@ from typing import Callable
 
 from aiwa.core.offtime import OffTimeParams, near, off_time, often_missed
 from aiwa.metrics.day import day_bounds
-from aiwa.core.rules.base import Cadence
-from aiwa.core.rules.shutdown import ShiftContext, shift_ending
+from aiwa.rules.base import Cadence
+from aiwa.rules.shutdown import ShiftContext, shift_ending
 from aiwa.core.shutdown import ShutdownParams, workday
 from aiwa.core.store import Store
 from aiwa.tasks_controller import TasksController

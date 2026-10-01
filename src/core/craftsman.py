@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from aiwa.core.events import Category, Segment
-from aiwa.core.rules.base import Rule, RuleParams
+from aiwa.rules.base import Rule, RuleParams
 
 
 @dataclass

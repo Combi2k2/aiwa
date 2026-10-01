@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from aiwa.core.events import Category, Segment
-from aiwa.core.rules.base import RuleParams
-from aiwa.core.rules.capture import TimeOnIt
+from aiwa.rules.base import RuleParams
+from aiwa.rules.capture import TimeOnIt
 
 
 @dataclass(frozen=True)

@@ -14,7 +14,7 @@ from __future__ import annotations
 from aiwa.core.events import Category
 from aiwa.core.focus.params import FocusParams
 from aiwa.core.focus.window import Window
-from aiwa.core.rules.base import RuleParams, chance_at
+from aiwa.rules.base import RuleParams, chance_at
 
 
 def depth(window: Window, params: FocusParams) -> float | None:

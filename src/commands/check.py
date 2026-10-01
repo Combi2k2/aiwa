@@ -8,7 +8,7 @@ from aiwa.commands.data import load_segments
 from aiwa.config import Config
 from aiwa.core.analyzer import Analyzer
 from aiwa.core.categories import label, summary, unknown
-from aiwa.core.rules import default_rules
+from aiwa.rules import default_rules
 from aiwa.core.timeline import BROWSER_APPS
 
 

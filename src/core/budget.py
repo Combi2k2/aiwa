@@ -12,7 +12,7 @@ import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from aiwa.core.rules.base import Cadence
+from aiwa.rules.base import Cadence
 
 AWAY = {"away"}
 
@@ -44,7 +44,7 @@ class ShallowBudget:
     """Every `check_every`, samples whether to mention the budget."""
 
     def __init__(self, params: BudgetParams = BudgetParams(), rng: random.Random | None = None):
-        from aiwa.core.rules.budget import BudgetRule
+        from aiwa.rules.budget import BudgetRule
 
         self.rule = BudgetRule(params, rng)
         self.cadence = Cadence(params.check_every)

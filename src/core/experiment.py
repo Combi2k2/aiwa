@@ -13,8 +13,8 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from aiwa.core.events import Segment
-from aiwa.core.rules.capture import TimeOnIt
-from aiwa.core.rules.base import RuleParams
+from aiwa.rules.capture import TimeOnIt
+from aiwa.rules.base import RuleParams
 
 DAYS = 30
 SLIP_AFTER = timedelta(seconds=10)  # on it this long in one visit = a slip

@@ -118,7 +118,7 @@ Deep work still involves switching, but within a small set of related items (a
 
 ## Critical files
 - Modify: `src/core/collector.py`, `core/analyzer.py`, `core/policy.py`, `core/store.py`,
-  `core/rules/__init__.py`, `config.py`, `app.py`, `cli.py`, `ui/tray.py`, `ui/popup.py`
+  `rules/__init__.py`, `config.py`, `app.py`, `cli.py`, `ui/tray.py`, `ui/popup.py`
 - New: `core/timeline.py`, `categories.py`, `sessions.py`, `metrics.py`, `decider.py`,
   `rules/interruptions.py`, `rules/lull.py`, `ui/plan.py`, `ui/review.py`
 - Track progress in `docs/deep-work.md` (update the checkboxes per phase).
@@ -335,7 +335,7 @@ Build order: morning start → routine questions → offline tasks → consisten
 - "Around 12:30 is usually time for a meal. Time for it now?" → Going now / Later /
   Skip today (Going now and Skip today: no more reminders for it today).
 
-## Decisions 2026-09-29: rules as one abstraction (`core/rules/`)
+## Decisions 2026-09-29: rules as one abstraction (`rules/`)
 - A rule = a quantity (`measure(context)`) against a **threshold**, with a **softness**
   (width of the S-curve; 0 = hard), a **direction** (above/below), a **range** (where
   it's active at all; `active(context)` for conditions beyond the quantity), and
@@ -353,7 +353,7 @@ Build order: morning start → routine questions → offline tasks → consisten
   - routine reminders: share of past days already started, threshold 0.5, softness 0.2;
   - capture: time on a shallow visit ≥ 15 s, in distraction ≥ 5 min (hard);
   - thinking-walk suggestion: session deep minutes, threshold 35, softness 8, from 25.
-- Layout: `core/rules/base.py` (the abstraction) and one module per rule in `core/rules/`;
+- Layout: `rules/base.py` (the abstraction) and one module per rule in `rules/`;
   the feature modules keep their params and use the rules (never the other way round).
 - Still plain hard checks inside the session state machine: away alarm (5 min), auto-end
   (10 min), wrap-up (50 min), and the offline grace.
@@ -448,14 +448,14 @@ Build order: morning start → routine questions → offline tasks → consisten
   (read-only; aiwa as an MCP server), protected time slots, earned breaks.
 
 ## Decisions 2026-10-01: decision pipelines, input, tasks, adapters
-- **Pipelines** (`core/rules/pipeline.py`): numbered levels of atomic rules that vote; a
+- **Pipelines** (`rules/pipeline.py`): numbered levels of atomic rules that vote; a
   level approves with a majority by default (or a given number, e.g. all); level n+1
   only votes if level n approved; the action runs when all levels approve. Levels have
   no semantics yet, just numbers. Rules read named **signals**; `Signal` is the generic
   rule on one signal (threshold / softness / direction / range): rules as data, the
   start of a config-defined system ("a minimal compiler").
 - First pipeline: suggest a session when focus builds up outside one
-  (`core/rules/suggest_session.py`): level 1 (all): not in session, not after shutdown,
+  (`rules/suggest_session.py`): level 1 (all): not in session, not after shutdown,
   no popup, ≥ 45 min (±10) since the last suggestion; level 2 (majority): 2-min focus
   rose ≥ 0.15 (±0.05) over 2 min, 5-min focus ≥ 0.5 (±0.1), on a deep site/app.
   Checked once a minute.

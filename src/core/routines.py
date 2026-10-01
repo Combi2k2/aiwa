@@ -13,7 +13,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
-from aiwa.core.rules.absence import AskRule
+from aiwa.rules.absence import AskRule
 from datetime import datetime, time, timedelta
 
 # two levels: category → activities (key, label)

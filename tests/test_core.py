@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from aiwa.config import parse
 from aiwa.core.events import Finding, Level, Segment
 from aiwa.core.policy import NudgePolicy
-from aiwa.core.rules.fragmentation import Fragmentation
+from aiwa.rules.fragmentation import Fragmentation
 
 NOW = datetime(2026, 9, 27, 12, 0, tzinfo=timezone.utc)
 

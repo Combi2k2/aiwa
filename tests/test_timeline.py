@@ -6,7 +6,7 @@ from aiwa.config import UNTRACKED, parse
 from aiwa.core.categories import Categorizer, prepare, unknown
 from aiwa.core.events import Category, Segment
 from aiwa.core.openjev import Openjev
-from aiwa.core.rules.fragmentation import Fragmentation
+from aiwa.rules.fragmentation import Fragmentation
 from aiwa.core.store import Store
 from aiwa.core.timeline import Tab, build
 
