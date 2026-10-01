@@ -112,37 +112,36 @@ component and parameter is described in `docs/components.md`.
 
 ## Layout
 
+The code lives in `src/` and is imported as `aiwa` (e.g. `from aiwa.rules.base import Rule`).
+Three kinds of building blocks each have a folder, with `base.py` defining the class and how it
+is evaluated, and one module per concrete one:
+
 ```
 src/
+  app.py          the tray app: builds everything, runs the flows every tick (15 s) and poll (2 s)
   cli.py          entry point: starts the tray app; subcommands are developer tools
-  commands/       one module per developer tool (check, focus, calibrate, ...)
-  config.py       settings + app/window allowlist (TOML)
-  app.py          the daemon: 2 s classification poll + 15 s analysis → UI
-  core/           OS-independent logic
-    scoreboard/   per-minute ledger, day summary, keeper (today's score)
-    collector.py  reads window, AFK and browser-tab data from ActivityWatch
-    timeline.py   cuts out away time, attaches tabs, merges repeated segments
-    categories.py deep / shallow / distraction / neutral, and masking untracked apps
-    classifier.py when to ask: track? classify? confirm openjev's answer?
-    openjev.py    optional category suggestions
-    focus/        focus intensity: window, depth, stability, continuity, moment, period, params
-    analyzer.py   runs rules over recent events
-    rules/        one file per pattern (fragmentation, ...)
-    policy.py     when a nudge may interrupt (gaps, snooze)
-    store.py      SQLite: nudge history, small-task inbox, remembered categories
-  ui/             PySide6 (Qt): tray, popup, inbox; same on every OS
+  config.py       settings (TOML)
+  signals/        named quantities over time
+    base.py       Signal (name, eval), Context, Values (lazy, cached)
+    focus/        the focus score: window, depth, stability, continuity, moment, period, params
+    state.py      signals from the app's state; defaults.py: the registered signals
+  rules/          a quantity against a soft threshold
+    base.py       Rule (measure, threshold, softness, direction, range → chance → decide), AllOf, Cadence
+    pipeline.py   numbered levels of rules voting by majority; SignalRule (a rule on a named signal)
+    budget.py, shutdown.py, focus.py, absence.py, reminder.py, capture.py, walk.py, suggest_session.py
+  flows/          what aiwa does over time (popups, alarms, records)
+    base.py       Flow (tick / poll hooks), FlowContext
+    session.py, morning.py, bedtime.py, shutdown.py, routines.py, reminders.py, capture.py,
+    experiment.py, budget.py, suggest.py, hub.py, rhythm.py, sprint.py, grand.py, meditation.py,
+    craftsman.py, tasks.py
+  metrics/        per-minute ledger, day summary, keeper; quota, consistency, session history
+  core/           domain logic the flows use: events, collector, timeline, categories, kinds,
+                  interpret, classifier, store, backlog, openjev, ai, and the flows' pure state
+                  machines (session, morning, bedtime, ...)
+  ui/             PySide6 (Qt): tray, popup, task windows; same on every OS
   services/       background programs aiwa runs: ActivityWatch's server and watchers
-  platforms/      the only OS-specific code: start at login, ActivityWatch location
-    macos.py      LaunchAgent
-    windows.py    registry Run key (untested)
-    linux.py      XDG autostart (untested)
+  platforms/      the only OS-specific code: start at login, ActivityWatch location, lock, close tabs
 ```
-
-## Adding a rule
-
-Create `rules/<name>.py` with a class that has a `name` and a
-`check(segments, now) -> Finding | None` method, then add it to
-`default_rules()` in `rules/__init__.py`.
 
 ## Platform status
 
