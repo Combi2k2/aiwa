@@ -15,7 +15,7 @@ from aiwa.core.ai import AISettings
 from aiwa.core.bedtime import BedtimeParams
 from aiwa.core.budget import BudgetParams
 from aiwa.core.events import Category
-from aiwa.core.focus.params import FocusParams
+from aiwa.signals.focus.params import FocusParams
 from aiwa.metrics.quota import QuotaParams
 from aiwa.core.sampling import SamplingParams
 from aiwa.core.schedule import RhythmParams

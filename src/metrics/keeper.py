@@ -6,7 +6,7 @@ from datetime import datetime, time
 from typing import Callable
 
 from aiwa.core.events import Segment
-from aiwa.core.focus import FocusParams
+from aiwa.signals.focus import FocusParams
 from aiwa.metrics.day import DayScore, day_bounds, summarize_day
 from aiwa.metrics.ledger import MINUTE, score_minutes
 from aiwa.core.store import Store

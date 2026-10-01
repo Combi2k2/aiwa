@@ -6,7 +6,7 @@ from datetime import date, datetime, time, timedelta, timezone
 
 from aiwa.commands.data import load_segments
 from aiwa.config import Config
-from aiwa.core.focus import FocusParams, Period, moment, series, summarize
+from aiwa.signals.focus import FocusParams, Period, moment, series, summarize
 
 SPARKS = "▁▂▃▄▅▆▇█"
 

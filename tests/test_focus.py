@@ -1,4 +1,4 @@
-"""Tests for aiwa.core.focus, one section per component."""
+"""Tests for aiwa.signals.focus, one section per component."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -6,11 +6,11 @@ import pytest
 
 from aiwa.config import parse
 from aiwa.core.events import Category, Segment
-from aiwa.core.focus import FocusParams, moment, series, summarize
-from aiwa.core.focus.continuity import continuity, mean_dwell_seconds
-from aiwa.core.focus.depth import depth
-from aiwa.core.focus.stability import effective_items, fit, hit_rate
-from aiwa.core.focus.window import slice_window
+from aiwa.signals.focus import FocusParams, moment, series, summarize
+from aiwa.signals.focus.continuity import continuity, mean_dwell_seconds
+from aiwa.signals.focus.depth import depth
+from aiwa.signals.focus.stability import effective_items, fit, hit_rate
+from aiwa.signals.focus.window import slice_window
 
 T0 = datetime(2026, 9, 28, 9, 0, tzinfo=timezone.utc)
 DEEP, SHALLOW, DISTRACTION, NEUTRAL = Category.DEEP, Category.SHALLOW, Category.DISTRACTION, Category.NEUTRAL

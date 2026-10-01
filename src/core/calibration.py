@@ -15,7 +15,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
 from aiwa.core.events import Category, Segment
-from aiwa.core.focus import FocusParams, moment
+from aiwa.signals.focus import FocusParams, moment
 
 MEASURES = {
     "intensity": lambda m: m.intensity,

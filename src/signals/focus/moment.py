@@ -6,11 +6,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from aiwa.core.events import Segment
-from aiwa.core.focus.continuity import continuity, mean_dwell_seconds
-from aiwa.core.focus.depth import depth
-from aiwa.core.focus.params import FocusParams
-from aiwa.core.focus.stability import effective_items, fit, hit_rate
-from aiwa.core.focus.window import Window, slice_window
+from aiwa.signals.focus.continuity import continuity, mean_dwell_seconds
+from aiwa.signals.focus.depth import depth
+from aiwa.signals.focus.params import FocusParams
+from aiwa.signals.focus.stability import effective_items, fit, hit_rate
+from aiwa.signals.focus.window import Window, slice_window
 
 
 @dataclass(frozen=True)

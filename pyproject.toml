@@ -25,8 +25,8 @@ build-backend = "setuptools.build_meta"
 # the code lives in src/ and is imported as `aiwa` (tests/test_packaging.py checks this list)
 package-dir = {"aiwa" = "src"}
 packages = [
-    "aiwa", "aiwa.commands", "aiwa.core", "aiwa.core.focus", "aiwa.metrics", "aiwa.platforms",
-    "aiwa.rules", "aiwa.services", "aiwa.ui",
+    "aiwa", "aiwa.commands", "aiwa.core", "aiwa.metrics", "aiwa.platforms", "aiwa.rules",
+    "aiwa.services", "aiwa.signals", "aiwa.signals.focus", "aiwa.ui",
 ]
 
 [tool.setuptools.package-data]

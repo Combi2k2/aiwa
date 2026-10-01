@@ -22,12 +22,12 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/classifier.py` | Decide when to ask about an app/site | what's in focus now → `Question` (track / classify / confirm) | `[classification]`, `[openjev] min_confidence` | `test_classifier.py` |
 | `core/openjev.py` | Suggest a category | app name or domain → (category, confidence) | `[openjev]` | `test_timeline.py` (mocked) |
 | `core/store.py` | Persist answers | categories, tracking choices, nudges, goal groups + task backlog, state values, sessions, plans ↔ SQLite | — | `test_core.py`, others |
-| `core/focus/window.py` | Slice one window | `Segment`s, end, τ → stretches + switches (no scoring) | — | `test_focus.py` |
-| `core/focus/depth.py` | How deep | window → [0, 1] | `shallow_weight` | `test_focus.py` |
-| `core/focus/stability.py` | Stayed in a small working set? | window → fit × hit rate | `capacity` | `test_focus.py` |
-| `core/focus/continuity.py` | Stayed on each item long enough? | window → [0, 1] | `dwell_scale_seconds` | `test_focus.py` |
-| `core/focus/moment.py` | Score one moment | `Segment`s, t, τ → `Moment` (all components + intensity) | `horizons_minutes` | `test_focus.py` |
-| `core/focus/period.py` | Summarize a period | `Segment`s, start, end → `Period` | `deep_threshold` | `test_focus.py` |
+| `signals/focus/window.py` | Slice one window | `Segment`s, end, τ → stretches + switches (no scoring) | — | `test_focus.py` |
+| `signals/focus/depth.py` | How deep | window → [0, 1] | `shallow_weight` | `test_focus.py` |
+| `signals/focus/stability.py` | Stayed in a small working set? | window → fit × hit rate | `capacity` | `test_focus.py` |
+| `signals/focus/continuity.py` | Stayed on each item long enough? | window → [0, 1] | `dwell_scale_seconds` | `test_focus.py` |
+| `signals/focus/moment.py` | Score one moment | `Segment`s, t, τ → `Moment` (all components + intensity) | `horizons_minutes` | `test_focus.py` |
+| `signals/focus/period.py` | Summarize a period | `Segment`s, start, end → `Period` | `deep_threshold` | `test_focus.py` |
 | `core/sampling.py` | When to ask "how focused are you? (1–5)" | now, away → due or not (random times in working hours, min gap) | `[sampling]` | `test_calibration.py` |
 | `core/calibration.py` | Score vs. your ratings | ratings + segments → rank correlation per component; one-at-a-time parameter sweep | — | `test_calibration.py` |
 | `metrics/ledger.py` | One saved entry per minute: focus intensity + main activity | segments → `MinuteEntry` per finished minute | — | `test_scoreboard.py` |
@@ -69,7 +69,7 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 | `core/association.py` | Which windows serve which goal: (goal of the active task or "open", window) minutes → weighted lift; `Contributes` rule | segments, sessions → window → goals | `AssociationParams` | `test_association.py` |
 | `core/craftsman.py`, `craftsman_prompts.py` | Craftsman approach: per site/app per week, serving a goal (learned association, notes → tasks) or not; `WorthAsking` rule (2 h unserved, not deep); the weekly question; the 30-day test after a "no" | segments, contributions, notes → `SiteWeek`s | `WorthAsking` | `test_craftsman.py` |
 | `core/timeline.py` `attach_inputs` | Input actions per minute per segment, from aw-watcher-input (presses / 2 + clicks) | segments, input events → segments | — | `test_inputs.py` |
-| `core/focus/depth.py` `mode` | Creating vs. consuming: depth weight × (0.8 … 1) by input rate (soft threshold at 10/min) | input rate → factor | `consuming`, `creating_at`, `creating_softness` in `FocusParams` | `test_inputs.py` |
+| `signals/focus/depth.py` `mode` | Creating vs. consuming: depth weight × (0.8 … 1) by input rate (soft threshold at 10/min) | input rate → factor | `consuming`, `creating_at`, `creating_softness` in `FocusParams` | `test_inputs.py` |
 | `rules/base.py` | The rule abstraction: quantity vs. soft threshold (threshold, softness, direction, range, steps) → chance → sampled decision; `AllOf`, `Cadence` | context → chance / fire? | per rule | `test_rule.py` |
 | `rules/pipeline.py` | Decision pipelines: numbered levels of rules that vote (majority or a set number); `Signal` = a rule on one named signal | signals → act? | per pipeline | `test_pipeline.py` |
 | `rules/suggest_session.py` | Pipeline: focus building up outside a session → "start a session?" | signals → act? | in the file | `test_pipeline.py` |
@@ -91,7 +91,7 @@ ActivityWatch ─► collector ─► timeline ─► categories.prepare ─┬�
 
 ## Focus intensity
 
-For a window of length τ ending at time t (`core/focus/moment.py`):
+For a window of length τ ending at time t (`signals/focus/moment.py`):
 
 ```
 intensity = depth × fit × hit rate × continuity           each in [0, 1]
@@ -107,7 +107,7 @@ intensity = depth × fit × hit rate × continuity           each in [0, 1]
 Undefined when less than 25% of the window is active, or all of it is neutral.
 Measured at τ = 2, 10, 30 min (`horizons_minutes`); the middle one is the main score.
 
-A **period** (`core/focus/period.py`) samples the main score every minute and
+A **period** (`signals/focus/period.py`) samples the main score every minute and
 reports mean intensity, deep minutes (score ≥ `deep_threshold`, 0.6), the
 longest deep streak, switches into distraction per hour, and the share of time active.
 

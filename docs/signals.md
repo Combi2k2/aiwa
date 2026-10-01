@@ -32,7 +32,7 @@ for reductions, like any other history.
 - **lookups** (per interval): URL → domain → category, kind; tracked / masked; lock screen →
   away; watching fills away; tools take the category of the work before
 - **window operators** (numeric, over t, at τ = 2 / 5 / 30 min): depth, fit, hit rate,
-  continuity, intensity (`core/focus/`); input rate (`timeline.py`, to be split into key and
+  continuity, intensity (`signals/focus/`); input rate (`timeline.py`, to be split into key and
   mouse intensity); rise = intensity(t) − intensity(t − lag) (`rules/focus.py`)
 - **resampling**: intensity and category per minute → the ledger (the one stored series)
 

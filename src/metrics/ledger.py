@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 from aiwa.core.categories import label
 from aiwa.core.events import Segment
-from aiwa.core.focus import FocusParams, moment
+from aiwa.signals.focus import FocusParams, moment
 
 MINUTE = timedelta(minutes=1)
 

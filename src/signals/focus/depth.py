@@ -12,8 +12,8 @@ against you. None when the window has only neutral time.
 from __future__ import annotations
 
 from aiwa.core.events import Category
-from aiwa.core.focus.params import FocusParams
-from aiwa.core.focus.window import Window
+from aiwa.signals.focus.params import FocusParams
+from aiwa.signals.focus.window import Window
 from aiwa.rules.base import RuleParams, chance_at
 
 

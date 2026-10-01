@@ -17,8 +17,8 @@ import math
 from collections import defaultdict
 
 from aiwa.core.events import Category
-from aiwa.core.focus.params import FocusParams
-from aiwa.core.focus.window import Switch, Window
+from aiwa.signals.focus.params import FocusParams
+from aiwa.signals.focus.window import Switch, Window
 
 
 def effective_items(window: Window) -> float:

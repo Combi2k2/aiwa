@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from aiwa.core.events import Category, Segment
-from aiwa.core.focus.moment import series
-from aiwa.core.focus.params import FocusParams
-from aiwa.core.focus.window import slice_window
+from aiwa.signals.focus.moment import series
+from aiwa.signals.focus.params import FocusParams
+from aiwa.signals.focus.window import slice_window
 
 STEP = timedelta(minutes=1)
 

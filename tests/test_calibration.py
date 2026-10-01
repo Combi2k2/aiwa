@@ -5,7 +5,7 @@ import pytest
 
 from aiwa.core.calibration import evaluate, spearman, sweep
 from aiwa.core.events import Category, Segment
-from aiwa.core.focus import FocusParams
+from aiwa.signals.focus import FocusParams
 from aiwa.core.sampling import SamplingParams, SamplingSchedule, plan_day
 from aiwa.core.store import Store
 

@@ -3,7 +3,7 @@ from datetime import date, datetime, time, timedelta, timezone
 import pytest
 
 from aiwa.core.events import Category, Segment
-from aiwa.core.focus import FocusParams
+from aiwa.signals.focus import FocusParams
 from aiwa.metrics.day import day_bounds, summarize_day
 from aiwa.metrics.keeper import ScoreKeeper
 from aiwa.metrics.ledger import MinuteEntry, score_minutes

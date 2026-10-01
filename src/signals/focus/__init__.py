@@ -11,8 +11,8 @@
 See docs/components.md for the formulas and what each parameter does.
 """
 
-from aiwa.core.focus.moment import Moment, moment, series
-from aiwa.core.focus.params import FocusParams
-from aiwa.core.focus.period import Period, summarize
+from aiwa.signals.focus.moment import Moment, moment, series
+from aiwa.signals.focus.params import FocusParams
+from aiwa.signals.focus.period import Period, summarize
 
 __all__ = ["FocusParams", "Moment", "Period", "moment", "series", "summarize"]

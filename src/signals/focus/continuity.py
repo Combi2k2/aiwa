@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import math
 
-from aiwa.core.focus.params import FocusParams
-from aiwa.core.focus.window import Window
+from aiwa.signals.focus.params import FocusParams
+from aiwa.signals.focus.window import Window
 
 
 def mean_dwell_seconds(window: Window) -> float:

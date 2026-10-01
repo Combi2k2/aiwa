@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
 from aiwa.core.events import Category, Segment
-from aiwa.core.focus.depth import depth, mode
-from aiwa.core.focus.params import FocusParams
-from aiwa.core.focus.window import slice_window
+from aiwa.signals.focus.depth import depth, mode
+from aiwa.signals.focus.params import FocusParams
+from aiwa.signals.focus.window import slice_window
 from aiwa.core.timeline import attach_inputs, input_actions, merge
 
 T0 = datetime(2026, 10, 1, 10, tzinfo=timezone.utc)

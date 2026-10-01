@@ -19,7 +19,7 @@ from aiwa.core.categories import Categorizer, prepare
 from aiwa.core.classifier import ClassificationLoop, Question
 from aiwa.core.collector import Collector
 from aiwa.core.events import Category, Finding, Level, Segment
-from aiwa.core.focus import moment
+from aiwa.signals.focus import moment
 from aiwa.core.sampling import SamplingSchedule
 from aiwa.metrics.keeper import ScoreKeeper
 from aiwa.metrics.day import day_bounds, summarize_day
@@ -43,6 +43,8 @@ from aiwa.core.sprint import Sprint
 from aiwa.core.hub import HubWatch
 from aiwa.rules.base import Cadence
 from aiwa.rules.suggest_session import suggest_session
+from aiwa.signals.base import Context, Values
+from aiwa.signals.defaults import default_signals
 from aiwa.core.craftsman import WorthAsking, pick, site_weeks
 from aiwa.core.association import AssociationParams, contributions, pair_minutes
 from aiwa.ui.background import Background
@@ -176,6 +178,7 @@ class Aiwa:
                                             new_task=lambda: self.tasks.new_task())
         self.sprint: Sprint | None = None
         self.hub = HubWatch()
+        self.signals = default_signals(config.focus)
         self.suggest_pipeline = suggest_session()
         self.suggest_cadence = Cadence(timedelta(minutes=1))
         self.last_suggested: datetime | None = None
@@ -548,26 +551,20 @@ class Aiwa:
         if response == "stop":
             self.stop_session(datetime.now(timezone.utc))
 
-    def signals(self, segments: list[Segment], latest: Segment | None, now: datetime) -> dict:
-        """Named quantities for the decision pipelines (core/rules/pipeline.py)."""
-        short = self.config.focus.horizons[0]
-        focus_2m = moment(segments, now, short, self.config.focus).intensity
-        before = moment(segments, now - timedelta(minutes=2), short, self.config.focus).intensity
+    def signal_values(self, segments: list[Segment], latest: Segment | None, now: datetime) -> Values:
+        """All signals (aiwa/signals) for this moment, evaluated lazily by the rules that read them."""
         since = (now - self.last_suggested).total_seconds() / 60 if self.last_suggested else 10_000
-        return {
+        state = {
             "in_session": self.session is not None,
             "shutdown_done": self.shutdown.done_today(now),
             "popup_open": self.popup.isVisible(),
-            "focus_2m": focus_2m,
-            "focus_rise": None if focus_2m is None or before is None else focus_2m - before,
-            "focus_5m": moment(segments, now, self.config.focus.main_horizon, self.config.focus).intensity,
-            "on_deep": latest is not None and not latest.away and latest.category is Category.DEEP,
             "minutes_since_suggested": since,
         }
+        return Values(self.signals, Context(now, segments, latest, state))
 
     def check_suggest_session(self, segments: list[Segment], latest: Segment | None, now: datetime) -> None:
         """Outside a session, focus is building up → "start a session?" (a pipeline)."""
-        if not self.suggest_cadence.due(now) or not self.suggest_pipeline.decide(self.signals(segments, latest, now)):
+        if not self.suggest_cadence.due(now) or not self.suggest_pipeline.decide(self.signal_values(segments, latest, now)):
             return
         self.last_suggested = now
         self.popup.ask("You're getting into it. Start a focus session to protect this?",

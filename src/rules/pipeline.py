@@ -8,7 +8,7 @@ level approves.
 
 Rules read **signals**: named quantities computed from the current state
 ("focus_2m", "in_session", ...). `SignalRule` is the generic rule on one named signal
-(threshold, softness, direction, range from core/rules/base.py), so a rule can be
+(threshold, softness, direction, range from rules/base.py), so a rule can be
 plain data; later these can come from the user's config.
 """
 
